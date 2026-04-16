@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Data (large files - don't commit raw data)
+data/raw/*.csv
+data/models/*.npy
+data/models/*.pkl
+data/models/*.keras
+
+# Keep processed results
+!data/processed/.gitkeep
+!data/models/feature_names.json
+!data/models/autoencoder_meta.json
+
+# Node
+node_modules/
+frontend/dist/
+
+# Build
+dashboard/static/react/
+
+# Logs
+logs/*.log
+*.log
+
+# Reports (generated)
+reports/*.png
+reports/*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

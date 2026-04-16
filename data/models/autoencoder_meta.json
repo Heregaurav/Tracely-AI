@@ -1,0 +1,8 @@
+{
+  "threshold": 0.5870477271396249,
+  "score_min": 0.01749445756798606,
+  "score_max": 7.839950048367862,
+  "input_dim": null,
+  "tf_available": false,
+  "model_path": "data/models/autoencoder_pca.pkl"
+}
