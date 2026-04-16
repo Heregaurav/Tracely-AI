@@ -26,7 +26,7 @@ Tracely AI is a production-grade User and Entity Behavior Analytics (UEBA) syste
 ## Quick Start (Automated)
 
 ```bash
-cd insider-threat-detection
+cd Tracely AI
 bash start.sh
 ```
 
