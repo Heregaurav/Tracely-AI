@@ -10,6 +10,7 @@ const TIERS = ['ALL','CRITICAL','HIGH','MEDIUM','LOW','NORMAL']
 function UCard({ u, onClick }) {
   const tier = u.risk_tier || 'NORMAL'
   const name = u.name || u.user || '?'
+  const graphScore = u.graph_score || 0
   return (
     <div className={`ucard ${tier}`} onClick={() => onClick(u.user)}>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
@@ -24,7 +25,7 @@ function UCard({ u, onClick }) {
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
-        {[['DEPT',u.department||'—'],['ROLE',u.role||'—'],['MAX',u.max_risk_score?.toFixed(1)||'—'],['H-DAYS',u.high_risk_days||0]].map(([l,v])=>(
+        {[['DEPT',u.department||'—'],['ROLE',u.role||'—'],['MAX',u.max_risk_score?.toFixed(1)||'—'],['GRAPH',graphScore.toFixed(1)]].map(([l,v])=>(
           <div key={l} style={{background:'var(--bg3)',borderRadius:6,padding:'7px 10px'}}>
             <div style={{fontSize:9,color:'var(--t3)',fontFamily:"'JetBrains Mono',monospace",letterSpacing:'.1em',marginBottom:3}}>{l}</div>
             <div style={{fontSize:12,fontWeight:l==='MAX'?700:400,color:l==='MAX'?TC[tier]:'var(--t2)',fontFamily:l==='MAX'?"'JetBrains Mono',monospace":'inherit'}}>{v}</div>
@@ -49,12 +50,28 @@ function UCard({ u, onClick }) {
         <span className="micro-chip"><Eye size={11}/> avg {u.avg_risk_score?.toFixed(1) || '0.0'}</span>
         <span className="micro-chip"><ShieldAlert size={11}/> {u.high_risk_days || 0} high-risk days</span>
         <span className="micro-chip"><Waves size={11}/> trend {u.trend || 'stable'}</span>
+        <span className="micro-chip">graph {u.graph_connections_count || 0} links</span>
+      </div>
+      <div className="graph-score-panel" style={{ marginTop: 12 }}>
+        <div className="graph-score-head">
+          <span>Graph Score</span>
+          <strong style={{ color: graphScore >= 70 ? 'var(--red)' : graphScore >= 40 ? 'var(--yellow)' : 'var(--green)' }}>{graphScore.toFixed(1)}</strong>
+        </div>
+        <div className="graph-progress">
+          <div
+            className="graph-progress-fill"
+            style={{
+              width:`${Math.min(100, graphScore)}%`,
+              background:graphScore >= 70 ? 'var(--red)' : graphScore >= 40 ? 'var(--yellow)' : 'var(--green)',
+            }}
+          />
+        </div>
       </div>
     </div>
   )
 }
 
-export default function Users() {
+export default function Users({ onNavigate }) {
   const [tier,  setTier]  = useState('ALL')
   const [search,setSearch]= useState('')
   const [view,  setView]  = useState('grid')
@@ -83,7 +100,7 @@ export default function Users() {
   }, [data, search])
 
   const sort = col => { if(col===sc) setAsc(a=>!a); else {setSC(col);setAsc(false)} }
-  const SH = ({col,lbl}) => (
+  const sortHeader = (col, lbl) => (
     <th onClick={()=>sort(col)} style={{cursor:'pointer',userSelect:'none'}}>
       {lbl}{sc===col?(asc?' ↑':' ↓'):''}
     </th>
@@ -99,12 +116,12 @@ export default function Users() {
 
   return (
     <div className="page">
-      {sel && <UserModal userId={sel} onClose={() => setSel(null)}/>}
+      {sel && <UserModal key={sel} userId={sel} onClose={() => setSel(null)} onViewGraph={(userId) => { setSel(null); onNavigate?.('graph', { userId }); }} />}
 
       <div className="hero" style={{ marginBottom: 20 }}>
         <div>
           <div className="hero-kicker">User Watchlist</div>
-          <h1 className="hero-title">Clearer user risk monitoring with faster drill-downs</h1>
+          <h1 className="hero-title"> Reveal Hidden User Threats</h1>
           <p className="hero-copy">
             Search, sort, and open individual dossiers to inspect behavior signals like files accessed, USB activity, external emails, sensitive file access, and session duration.
           </p>
@@ -130,7 +147,7 @@ export default function Users() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
         <div className="sec" style={{marginBottom:0}}>
           <div className="sec-t">User Watchlist</div>
-          <div className="sec-s">{users.length} subjects{tier!=='ALL'?` · ${tier}`:''}</div>
+          <div className="sec-s">{users.length} subjects{tier!=='ALL'?` · ${tier}`:''} · High graph score indicates unusual connections across devices, files, or emails</div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <input className="search" placeholder="Search name / ID / dept…"
@@ -159,11 +176,12 @@ export default function Users() {
               <thead>
                 <tr>
                   <th>USER</th>
-                  <SH col="max_risk_score" lbl="MAX"/>
-                  <SH col="avg_risk_score" lbl="AVG"/>
-                  <SH col="risk_tier"      lbl="TIER"/>
-                  <SH col="department"     lbl="DEPT"/>
-                  <SH col="high_risk_days" lbl="HIGH DAYS"/>
+                  {sortHeader('max_risk_score', 'MAX')}
+                  {sortHeader('avg_risk_score', 'AVG')}
+                  {sortHeader('risk_tier', 'TIER')}
+                  {sortHeader('graph_score', 'GRAPH')}
+                  {sortHeader('department', 'DEPT')}
+                  {sortHeader('high_risk_days', 'HIGH DAYS')}
                   <th>TREND</th>
                 </tr>
               </thead>
@@ -182,6 +200,7 @@ export default function Users() {
                     <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:TC[u.risk_tier]}}>{u.max_risk_score?.toFixed(1)}</span></td>
                     <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:'var(--t2)'}}>{u.avg_risk_score?.toFixed(1)}</span></td>
                     <td><Badge tier={u.risk_tier}/></td>
+                    <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:u.graph_score>=70?'var(--red)':u.graph_score>=40?'var(--yellow)':'var(--green)'}}>{u.graph_score?.toFixed(1) || '0.0'}</span></td>
                     <td style={{fontSize:12,color:'var(--t2)'}}>{u.department||'—'}</td>
                     <td><span className="mono">{u.high_risk_days}d</span></td>
                     <td><TrendBadge dir={u.trend}/></td>

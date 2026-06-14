@@ -25,9 +25,9 @@ export default function Timeline() {
   },[chart])
 
   const toggles=[
-    {key:'avg',lbl:'Avg Risk',c:'#5b8df6',s:sa,set:setSA},
-    {key:'max',lbl:'Max Risk',c:'#fb923c',s:sm,set:setSM},
-    {key:'inc',lbl:'Incidents',c:'rgba(251,191,36,.7)',s:si,set:setSI},
+    {key:'avg',lbl:'Avg Risk',c:'var(--blue)',s:sa,set:setSA},
+    {key:'max',lbl:'Max Risk',c:'var(--orange)',s:sm,set:setSM},
+    {key:'inc',lbl:'Incidents',c:'var(--yellow)',s:si,set:setSI},
   ]
 
   return(
@@ -78,21 +78,21 @@ export default function Timeline() {
               <ComposedChart data={chart} margin={{top:4,right:10,left:-24,bottom:0}}>
                 <defs>
                   <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#5b8df6" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#5b8df6" stopOpacity={0}/>
+                    <stop offset="5%"  stopColor="var(--blue)" stopOpacity={0.18}/>
+                    <stop offset="95%" stopColor="var(--blue)" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3"/>
+                <CartesianGrid stroke="rgba(255,255,255,0.02)"/>
                 <XAxis dataKey="date" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd" tickFormatter={v=>v?.slice(0,5)}/>
                 <YAxis yAxisId="s" domain={[0,100]} tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false}/>
                 <YAxis yAxisId="i" orientation="right" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false}/>
                 <Tooltip content={<ChartTooltip/>}/>
-                <ReferenceLine yAxisId="s" y={85} stroke="var(--red)"    strokeDasharray="5 4" strokeWidth={0.8}/>
-                <ReferenceLine yAxisId="s" y={70} stroke="var(--orange)" strokeDasharray="5 4" strokeWidth={0.8}/>
-                <ReferenceLine yAxisId="s" y={40} stroke="var(--cyan)"   strokeDasharray="5 4" strokeWidth={0.6}/>
-                {si&&<Bar yAxisId="i" dataKey="incidents" name="Incidents" fill="rgba(251,191,36,.18)" stroke="rgba(251,191,36,.4)" strokeWidth={0.5} barSize={6} radius={[2,2,0,0]}/>}
-                {sm&&<Line yAxisId="s" type="monotone" dataKey="max" name="Max Risk" stroke="#fb923c" strokeWidth={1.5} dot={false} strokeDasharray="5 3"/>}
-                {sa&&<Area yAxisId="s" type="monotone" dataKey="avg" name="Avg Risk" stroke="#5b8df6" strokeWidth={2.5} fill="url(#tg)" dot={false}/>}
+                <ReferenceLine yAxisId="s" y={85} stroke="var(--red)"    strokeWidth={0.8} strokeOpacity={0.5}/>
+                <ReferenceLine yAxisId="s" y={70} stroke="var(--orange)" strokeWidth={0.8} strokeOpacity={0.45}/>
+                <ReferenceLine yAxisId="s" y={40} stroke="var(--cyan)"   strokeWidth={0.6} strokeOpacity={0.38}/>
+                {si&&<Bar yAxisId="i" dataKey="incidents" name="Incidents" fill="var(--yellow)" stroke="rgba(0,0,0,0.06)" strokeWidth={0.5} barSize={6} radius={[2,2,0,0]}/>} 
+                {sm&&<Line yAxisId="s" type="monotone" dataKey="max" name="Max Risk" stroke="var(--orange)" strokeWidth={1.6} dot={false} />}
+                {sa&&<Area yAxisId="s" type="monotone" dataKey="avg" name="Avg Risk" stroke="var(--blue)" strokeWidth={2.5} fill="url(#tg)" dot={false}/>}
               </ComposedChart>
             </ResponsiveContainer>
           )}

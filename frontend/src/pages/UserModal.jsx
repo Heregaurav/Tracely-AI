@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { apiFetch } from '../hooks/useApi'
 import { Badge, Loading, Avatar, TrendBadge, ChartTooltip } from '../components/shared'
-import { X } from 'lucide-react'
+import { Network, X } from 'lucide-react'
 
 const TC = { CRITICAL:'var(--red)', HIGH:'var(--orange)', MEDIUM:'var(--yellow)', LOW:'var(--cyan)', NORMAL:'var(--green)' }
 const BKEYS = ['files_accessed','usb_count','emails_external','after_hours_logins','sensitive_files','email_attachments','session_duration_total','unique_pcs']
@@ -13,13 +13,12 @@ function barColor(pct) {
   return pct>75?'var(--red)':pct>50?'var(--orange)':pct>25?'var(--yellow)':'var(--cyan)'
 }
 
-export default function UserModal({ userId, onClose }) {
+export default function UserModal({ userId, onClose, onViewGraph }) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!userId) return
-    setLoading(true)
     apiFetch(`/api/users/${userId}`)
       .then(d => setData(d))
       .catch(console.error)
@@ -48,6 +47,7 @@ export default function UserModal({ userId, onClose }) {
   const email = data?.ldap?.email || '—'
   const peak  = Math.max(...(data?.daily_scores||[]).map(d=>d.risk_score||0), 0)
   const avg   = data?.avg_risk_score || 0
+  const graphScore = data?.graph_score || 0
   const latest = recent[recent.length - 1] || {}
 
   return (
@@ -65,6 +65,9 @@ export default function UserModal({ userId, onClose }) {
               <div style={{marginTop:7,display:'flex',alignItems:'center',gap:8}}>
                 <Badge tier={tier}/>
                 <TrendBadge dir={data?.trend}/>
+                <button className="btn btn-sm" onClick={() => onViewGraph?.(userId)}>
+                  <Network size={13} /> View Graph
+                </button>
               </div>
             </div>
           </div>
@@ -88,8 +91,9 @@ export default function UserModal({ userId, onClose }) {
                 {[
                   ['Peak Score', peak.toFixed(1), TC[tier]||TC.NORMAL, 'Highest risk score on record'],
                   ['Average Score', avg.toFixed(1), 'var(--blue)', '30-day user risk average'],
+                  ['Graph Score', graphScore.toFixed(1), graphScore >= 70 ? 'var(--red)' : graphScore >= 40 ? 'var(--yellow)' : 'var(--green)', 'Unusual cross-entity relationship intensity'],
                   ['Open Alerts', data?.alerts?.length||0, (data?.alerts?.length||0)>0?'var(--orange)':'var(--green)', 'Triggered alert events in the dossier'],
-                  ['Active Days', data?.total_days_active||0, 'var(--cyan)', 'Tracked behavior days for this user'],
+                  ['Connections', data?.graph_connections_count||0, 'var(--cyan)', 'Direct device, file, and email links'],
                 ].map(([l,v,c,s]) => (
                   <div key={l} className="feature-panel">
                     <div className="feature-label">{l}</div>
@@ -111,8 +115,8 @@ export default function UserModal({ userId, onClose }) {
                           <AreaChart data={chartData} margin={{top:4,right:8,left:-24,bottom:0}}>
                             <defs>
                               <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%"  stopColor="#5b8df6" stopOpacity={0.25}/>
-                                <stop offset="95%" stopColor="#5b8df6" stopOpacity={0}/>
+                                <stop offset="5%"  stopColor="var(--blue)" stopOpacity={0.25}/>
+                                <stop offset="95%" stopColor="var(--blue)" stopOpacity={0}/>
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3"/>
@@ -121,7 +125,7 @@ export default function UserModal({ userId, onClose }) {
                             <Tooltip content={<ChartTooltip/>}/>
                             <ReferenceLine y={85} stroke="var(--red)" strokeDasharray="4 3" strokeWidth={0.8}/>
                             <ReferenceLine y={70} stroke="var(--orange)" strokeDasharray="4 3" strokeWidth={0.8}/>
-                            <Area type="monotone" dataKey="score" name="Risk Score" stroke="#5b8df6" strokeWidth={2} fill="url(#sg)" dot={false}/>
+                            <Area type="monotone" dataKey="score" name="Risk Score" stroke="var(--blue)" strokeWidth={2} fill="url(#sg)" dot={false}/>
                           </AreaChart>
                         </ResponsiveContainer>
                       )}
@@ -150,6 +154,12 @@ export default function UserModal({ userId, onClose }) {
                       </div>
                     )
                   })}
+                  <div className="callout" style={{ marginTop: 18 }}>
+                    <div className="callout-t">Graph Score Signal</div>
+                    <div className="callout-b">
+                      High graph score indicates unusual connections across devices, files, or emails.
+                    </div>
+                  </div>
                 </div>
 
                 <div>

@@ -1,5 +1,5 @@
 """
-SENTINEL — Full Test Suite
+Tracely AI — Full Test Suite
 ===========================
 Tests every layer: data generation, preprocessing,
 feature engineering, models, scoring, and API.
@@ -349,6 +349,16 @@ class TestScoringEngine:
         assert eng.classify_tier(55) == "LOW"
         assert eng.classify_tier(20) == "NORMAL"
 
+    def test_graph_weighted_ensemble(self):
+        from src.models.scorer import ScoringEngine
+        eng = ScoringEngine()
+        if_s = np.array([20.0, 80.0, 50.0])
+        ae_s = np.array([40.0, 60.0, 70.0])
+        graph_s = np.array([10.0, 30.0, 90.0])
+        combo = eng.ensemble_score(if_s, ae_s, graph_s)
+        expected = (0.6 * if_s) + (0.3 * ae_s) + (0.1 * graph_s)
+        np.testing.assert_allclose(combo, expected, rtol=1e-5)
+
 
 # ─────────────────────────────────────────────────────────────────
 # 7. Flask API Tests
@@ -420,6 +430,16 @@ class TestFlaskAPI:
     def test_user_detail_404_on_unknown(self, flask_client):
         r = flask_client.get("/api/users/UNKNOWN_USER_XYZ")
         assert r.status_code == 404
+
+    def test_graph_endpoint(self, flask_client):
+        r = flask_client.get("/api/graph?user_id=CER0001")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert "nodes" in d
+        assert "edges" in d
+        assert isinstance(d["nodes"], list)
+        assert isinstance(d["edges"], list)
+        assert any(node["type"] == "user" for node in d["nodes"])
 
     def test_timeline_endpoint(self, flask_client):
         r = flask_client.get("/api/timeline?days=30")

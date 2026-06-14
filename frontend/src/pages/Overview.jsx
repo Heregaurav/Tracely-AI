@@ -58,20 +58,20 @@ export default function Overview({ onNavigate }) {
                 <AreaChart data={chartData} margin={{top:4,right:8,left:-24,bottom:0}}>
                   <defs>
                     <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#5b8df6" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#5b8df6" stopOpacity={0}/>
+                      <stop offset="5%"  stopColor="var(--blue)" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="var(--blue)" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#fb923c" stopOpacity={0.15}/>
-                      <stop offset="95%" stopColor="#fb923c" stopOpacity={0}/>
+                      <stop offset="5%"  stopColor="var(--orange)" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="var(--orange)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3"/>
                   <XAxis dataKey="date" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
                   <YAxis domain={[0,100]} tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false}/>
                   <Tooltip content={<ChartTooltip/>}/>
-                  <Area type="monotone" dataKey="max" name="Max Risk" stroke="#fb923c" strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gb)"/>
-                  <Area type="monotone" dataKey="avg" name="Avg Risk" stroke="#5b8df6" strokeWidth={2} fill="url(#ga)"/>
+                  <Area type="monotone" dataKey="max" name="Max Risk" stroke="var(--orange)" strokeWidth={1.5} fill="url(#gb)"/>
+                  <Area type="monotone" dataKey="avg" name="Avg Risk" stroke="var(--blue)" strokeWidth={2} fill="url(#ga)"/>
                 </AreaChart>
               </ResponsiveContainer>
             )}

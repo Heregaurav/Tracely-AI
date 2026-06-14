@@ -20,14 +20,13 @@ import sys
 import json
 import logging
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
-from functools import wraps
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+from src.models.graph_detector import GraphAnomalyDetector
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -49,6 +48,7 @@ class DataStore:
         self.file_df = None
         self.device_df = None
         self.email_df = None
+        self.graph_detector = None
         self.loaded = False
         self.load()
 
@@ -68,12 +68,22 @@ class DataStore:
             self.user_risk_df = safe_parquet(f"{proc}/user_risk_scores.parquet")
             self.alerts_df   = safe_parquet(f"{proc}/alerts.parquet")
             self.ldap_df     = safe_csv(f"{raw}/LDAP.csv")
+            self.file_df     = safe_parquet(f"{proc}/file_clean.parquet")
+            self.device_df   = safe_parquet(f"{proc}/device_clean.parquet")
+            self.email_df    = safe_parquet(f"{proc}/email_clean.parquet")
 
             # Convert dates
             if not self.scored_df.empty and "day" in self.scored_df.columns:
                 self.scored_df["day"] = pd.to_datetime(self.scored_df["day"])
             if not self.user_risk_df.empty and "latest_day" in self.user_risk_df.columns:
                 self.user_risk_df["latest_day"] = pd.to_datetime(self.user_risk_df["latest_day"])
+
+            self.graph_detector = GraphAnomalyDetector(
+                device_df=self.device_df,
+                file_df=self.file_df,
+                email_df=self.email_df,
+            )
+            self._attach_graph_metrics()
 
             n_users  = self.user_risk_df["user"].nunique() if not self.user_risk_df.empty else 0
             n_alerts = len(self.alerts_df) if not self.alerts_df.empty else 0
@@ -86,6 +96,30 @@ class DataStore:
 
     def reload(self):
         self.load()
+
+    def _attach_graph_metrics(self):
+        if self.graph_detector is None:
+            return
+
+        graph_metrics = self.graph_detector.get_user_metrics_df()
+        if graph_metrics.empty:
+            return
+
+        if self.user_risk_df is not None and not self.user_risk_df.empty:
+            base = self.user_risk_df.drop(columns=["graph_score", "graph_connections_count"], errors="ignore")
+            self.user_risk_df = base.merge(
+                graph_metrics[["user", "graph_score", "graph_connections_count"]],
+                on="user",
+                how="left",
+            )
+
+        if self.scored_df is not None and not self.scored_df.empty:
+            base = self.scored_df.drop(columns=["graph_score", "graph_connections_count"], errors="ignore")
+            self.scored_df = base.merge(
+                graph_metrics[["user", "graph_score", "graph_connections_count"]],
+                on="user",
+                how="left",
+            )
 
 
 store = DataStore()
@@ -309,6 +343,27 @@ def user_detail(user_id):
 
         return jsonify(user_data)
     except Exception as e:
+        return error_response(str(e))
+
+
+# ------------------------------------------------------------------
+# GET /api/graph?user_id=CER0001
+# ------------------------------------------------------------------
+@app.route("/api/graph")
+def graph_view():
+    try:
+        user_id = request.args.get("user_id", "").strip()
+        if not user_id:
+            return error_response("user_id is required", 400)
+        if store.graph_detector is None:
+            return jsonify({"nodes": [], "edges": [], "graph_score": 0, "graph_connections_count": 0})
+
+        payload = store.graph_detector.get_user_subgraph(user_id)
+        if not payload.get("nodes"):
+            return error_response(f"User {user_id} not found in graph", 404)
+        return jsonify(payload)
+    except Exception as e:
+        logger.error(f"/api/graph error: {e}")
         return error_response(str(e))
 
 

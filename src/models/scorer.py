@@ -20,6 +20,8 @@ import json
 import logging
 from datetime import datetime, timedelta
 
+from src.models.graph_detector import GraphAnomalyDetector
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -61,8 +63,12 @@ class ScoringEngine:
     # ------------------------------------------------------------------
     # Score combination
     # ------------------------------------------------------------------
-    def ensemble_score(self, if_scores, ae_scores):
-        """Weighted combination of Isolation Forest and Autoencoder scores."""
+    def ensemble_score(self, if_scores, ae_scores, graph_scores=None):
+        """Weighted combination of model scores with optional graph context."""
+        if graph_scores is not None:
+            combined = (0.6 * if_scores) + (0.3 * ae_scores) + (0.1 * graph_scores)
+            return np.clip(combined, 0, 100)
+
         w_if = self.weights["isolation_forest"]
         w_ae = self.weights["autoencoder"]
         combined = (w_if * if_scores + w_ae * ae_scores) / (w_if + w_ae)
@@ -84,14 +90,29 @@ class ScoringEngine:
     # ------------------------------------------------------------------
     # Per-day scoring
     # ------------------------------------------------------------------
-    def score_all(self, meta_df, if_scores, ae_scores):
+    def score_all(self, meta_df, if_scores, ae_scores, graph_metrics_df=None):
         """
         Attach scores to metadata, compute tiers, return scored DataFrame.
         """
         df = meta_df.copy()
+        graph_metrics_df = graph_metrics_df if graph_metrics_df is not None else self._load_graph_metrics()
+        if graph_metrics_df is not None and not graph_metrics_df.empty and "user" in df.columns:
+            available_cols = [
+                col for col in ["user", "graph_score", "graph_connections_count"]
+                if col in graph_metrics_df.columns
+            ]
+            df = df.merge(graph_metrics_df[available_cols], on="user", how="left")
+
         df["if_score"] = np.round(if_scores, 2)
         df["ae_score"] = np.round(ae_scores, 2)
-        df["risk_score"] = np.round(self.ensemble_score(if_scores, ae_scores), 2)
+        df["graph_score"] = np.round(df.get("graph_score", pd.Series(0, index=df.index)).fillna(0), 2)
+        df["graph_connections_count"] = (
+            df.get("graph_connections_count", pd.Series(0, index=df.index)).fillna(0).astype(int)
+        )
+        df["risk_score"] = np.round(
+            self.ensemble_score(if_scores, ae_scores, df["graph_score"].to_numpy()),
+            2,
+        )
         df["risk_tier"] = df["risk_score"].apply(self.classify_tier)
         df["scored_at"] = datetime.utcnow().isoformat()
         return df
@@ -117,6 +138,8 @@ class ScoringEngine:
             latest_score=("risk_score", "last"),
             latest_day=("day", "max"),
             total_days_active=("day", "nunique"),
+            graph_score=("graph_score", "max"),
+            graph_connections_count=("graph_connections_count", "max"),
         ).reset_index()
 
         # Department
@@ -169,6 +192,7 @@ class ScoringEngine:
                 "risk_tier": row["risk_tier"],
                 "if_score": row.get("if_score", 0),
                 "ae_score": row.get("ae_score", 0),
+                "graph_score": row.get("graph_score", 0),
                 "alert_type": "DAILY_ANOMALY",
                 "status": "OPEN",
                 "message": self._alert_message(row),
@@ -189,6 +213,7 @@ class ScoringEngine:
                     "risk_tier": row["risk_tier"],
                     "if_score": None,
                     "ae_score": None,
+                    "graph_score": row.get("graph_score", None),
                     "alert_type": "RISING_TREND",
                     "status": "OPEN",
                     "message": f"User {row['user']} shows escalating risk trend over past 14 days.",
@@ -251,3 +276,14 @@ class ScoringEngine:
         logger.info(f"  Alerts           → {alerts_path}")
         logger.info(f"  JSON report      → {json_path}")
         return summary
+
+    def _load_graph_metrics(self):
+        def safe_parquet(path):
+            return pd.read_parquet(path) if os.path.exists(path) else pd.DataFrame()
+
+        detector = GraphAnomalyDetector(
+            device_df=safe_parquet(os.path.join(self.proc_dir, "device_clean.parquet")),
+            file_df=safe_parquet(os.path.join(self.proc_dir, "file_clean.parquet")),
+            email_df=safe_parquet(os.path.join(self.proc_dir, "email_clean.parquet")),
+        )
+        return detector.get_user_metrics_df()

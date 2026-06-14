@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, AlertTriangle, Users, BarChart2, TrendingUp, Building2, FileText, RefreshCw, MoonStar, SunMedium } from 'lucide-react'
+import { LayoutDashboard, Menu, AlertTriangle, Users, BarChart2, TrendingUp, Building2, FileText, RefreshCw, MoonStar, SunMedium, Radar } from 'lucide-react'
 import { usePolling } from './hooks/useApi'
+import Landing     from './pages/Landing'
 import Overview    from './pages/Overview'
 import Threats     from './pages/Threats'
 import UsersList   from './pages/Users'
@@ -8,8 +9,10 @@ import Heatmap     from './pages/Heatmap'
 import Timeline    from './pages/Timeline'
 import Departments from './pages/Departments'
 import Reports     from './pages/Reports'
+import GraphView    from './pages/GraphView'
 
 const PAGES = {
+  landing:     { label:'Welcome',       Component:Landing,     Icon:LayoutDashboard },
   overview:    { label:'Overview',      Component:Overview,    Icon:LayoutDashboard },
   threats:     { label:'Threats',       Component:Threats,     Icon:AlertTriangle   },
   users:       { label:'Users',         Component:UsersList,   Icon:Users           },
@@ -17,6 +20,7 @@ const PAGES = {
   timeline:    { label:'Timeline',      Component:Timeline,    Icon:TrendingUp      },
   departments: { label:'Departments',   Component:Departments, Icon:Building2       },
   reports:     { label:'Reports',       Component:Reports,     Icon:FileText        },
+  graph:       { label:'Graph',         Component:GraphView,   Icon:Radar           },
 }
 
 const NAV_GROUPS = [
@@ -35,7 +39,9 @@ function threatLevel(s) {
 }
 
 export default function App() {
-  const [page, setPage] = useState('overview')
+  const [page, setPage] = useState('landing')
+  const [pageParams, setPageParams] = useState({})
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [clock, setClock] = useState('')
   const [theme, setTheme] = useState(() => localStorage.getItem('tracely-theme') || 'dark')
   const { data:stats, refetch } = usePolling('/api/stats', 30000)
@@ -57,18 +63,37 @@ export default function App() {
   const { Component } = PAGES[page] || PAGES.overview
   const isLight = theme === 'light'
 
+  const navigate = (pageId, params) => {
+    setPage(pageId)
+    setPageParams(params || {})
+  }
+
+  if (page === 'landing') {
+    const LandingComp = PAGES.landing.Component
+    return (
+      <div className="app">
+        <div className="main landing-only">
+          <LandingComp onNavigate={navigate} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       {/* ── Sidebar ── */}
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sb-brand">
-          <div className="sb-logo">
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', color: '#fff', marginLeft: 2 }}>TA</span>
-          </div>
+          {/* <div className="sb-logo">
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', color: '#fff', marginLeft: 4}}>TA</span>
+          </div> */}
           <div>
             <div className="sb-name">Tracely AI</div>
-            <div className="sb-ver">Bring Imposter Down</div>
+            {/* <div className="sb-ver">Bring Imposter Down</div> */}
           </div>
+          {/* <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={() => setSidebarCollapsed(s => !s)} title={sidebarCollapsed ? 'Expand' : 'Collapse sidebar'}>
+            {sidebarCollapsed ? <LayoutDashboard size={14} /> : <LayoutDashboard size={14} />}
+          </button> */}
         </div>
 
         <nav className="sb-nav">
@@ -109,9 +134,12 @@ export default function App() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="main">
+      <div className="main" style={{ marginLeft: sidebarCollapsed ? 0 : 'var(--sidebar)' }}>
         <header className="topbar">
           <div className="topbar-l">
+            <button className="icon-btn hamburger" onClick={() => setSidebarCollapsed(s => !s)} title="Toggle menu" style={{ padding: 6, marginRight: 8 }}>
+              <Menu size={16} />
+            </button>
             <span className="pg-title">{PAGES[page]?.label}</span>
           </div>
           <div className="topbar-r">
@@ -142,7 +170,7 @@ export default function App() {
           </div>
         </header>
 
-        <Component onNavigate={setPage} />
+        <Component onNavigate={navigate} userId={pageParams.userId} onBack={() => navigate('users')} />
       </div>
     </div>
   )

@@ -9,7 +9,9 @@ const BG = {
 }
 
 export function Badge({ tier = 'NORMAL' }) {
-  return <span className={`badge ${tier}`}>{tier}</span>
+  const SHORT = { CRITICAL: 'CRIT', HIGH: 'HIGH', MEDIUM: 'MED', LOW: 'LOW', NORMAL: 'NORM' }
+  const label = SHORT[tier] || tier
+  return <span className={`badge ${tier}`}>{label}</span>
 }
 
 export function RiskBar({ score = 0, width = 72 }) {
