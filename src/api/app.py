@@ -33,7 +33,21 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder="../../dashboard/static",
             template_folder="../../dashboard/templates")
-CORS(app)
+
+
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                frontend_url,
+                "http://localhost:5173"
+            ]
+        }
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Data loader — loads parquet files into memory once at startup
