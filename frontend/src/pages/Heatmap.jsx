@@ -52,11 +52,11 @@ export default function Heatmap() {
             ))}
           </div>
 
-          <div className="card" style={{padding:0,overflowX:'auto'}}>
-            <div style={{padding:'18px 22px',minWidth:540}}>
+          <div className="card heatmap-card" style={{padding:0,overflowX:'auto'}}>
+            <div className="heatmap-wrap" style={{padding:'18px 22px'}}>
               {/* Day column headers */}
-              <div style={{display:'grid',gridTemplateColumns:'120px repeat(7,1fr)',gap:3,marginBottom:5}}>
-                <div/>
+              <div className="heatmap-header-grid">
+                <div className="heatmap-label" />
                 {DS.map((d,i)=>(
                   <div key={i} style={{
                     textAlign:'center',fontFamily:"'JetBrains Mono',monospace",fontSize:10,
@@ -66,8 +66,8 @@ export default function Heatmap() {
               </div>
 
               {depts.map(dept => (
-                <div key={dept} style={{display:'grid',gridTemplateColumns:'120px repeat(7,1fr)',gap:3,marginBottom:3}}>
-                  <div style={{display:'flex',alignItems:'center',paddingRight:10}}>
+                <div key={dept} className="heatmap-row">
+                  <div className="heatmap-dept-label">
                     <span style={{fontSize:11,color:'var(--t2)',fontFamily:"'JetBrains Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{dept}</span>
                   </div>
                   {DAYS.map((day,i) => {

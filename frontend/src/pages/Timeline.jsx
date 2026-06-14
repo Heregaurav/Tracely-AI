@@ -43,7 +43,7 @@ export default function Timeline() {
       </div>
 
       {stats&&(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:18}}>
+        <div className="timeline-stats">
           {[['PEAK SCORE',stats.peak,'var(--red)'],['AVG MEAN',stats.mean,'var(--blue)'],['INCIDENTS',stats.totalInc,'var(--orange)'],['PEAK DATE',stats.peakDate?.slice(0,5)||'—','var(--t2)']].map(([l,v,c])=>(
             <div key={l} className="scard c-blue" style={{paddingTop:16,paddingBottom:16}}>
               <div className="s-lbl">{l}</div>
@@ -67,12 +67,12 @@ export default function Timeline() {
         ))}
       </div>
 
-      <div className="card">
+      <div className="card timeline-card">
         <div className="card-h">
           <span className="card-t">Risk Timeline — {days} days</span>
           <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--t3)'}}>{chart.length} data points</span>
         </div>
-        <div style={{padding:'18px 10px 10px'}}>
+        <div className="timeline-chart-area">
           {loading?<Loading/>:!chart.length?<Empty/>:(
             <ResponsiveContainer width="100%" height={310}>
               <ComposedChart data={chart} margin={{top:4,right:10,left:-24,bottom:0}}>

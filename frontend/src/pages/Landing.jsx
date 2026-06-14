@@ -12,9 +12,8 @@ import {
 export default function Landing({ onNavigate }) {
   return (
     <div className="landing-full">
-        <div style={{ textAlign: 'center', marginBottom: 50 }}>
-          <div  className="brand-title" style={{ fontSize: 55, fontWeight: 800, color: '#c4e201', letterSpacing: '.16em' }}>TRACELY AI</div>
-    
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div className="brand-title">TRACELY AI</div>
         </div>
       <div className="landing-card cards-wrapper" style={{ marginTop: 48 }}>
       
@@ -66,19 +65,15 @@ export default function Landing({ onNavigate }) {
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 80 ,marginBottom: 80 , padding:10}}>
           {/* <button className="btn btn-primary" onClick={() => onNavigate?.('overview')}>Explore it now ..</button> */}
-          <div className="cta-container">
-                <button
-                    className="button2" 
-                    // style = {{padding:30 , paddingTop:18 , paddingBottom:18 , fontSize:18}}
-                    onClick={() => onNavigate?.('overview')}
-                >
-                    Explore it now 
-              
-                      <CircleArrowRight size={50} strokeWidth={0.85}  className="text-black" />
-         
-                    
-                </button>
-                </div>
+            <div className="cta-container">
+              <button
+                className="button2 cta-btn"
+                onClick={() => onNavigate?.('overview')}
+              >
+                Explore it now
+                <CircleArrowRight size={36} strokeWidth={0.85} className="text-black" />
+              </button>
+            </div>
         </div>
         <div style={{ marginTop: 16, color: 'var(--t3)', fontSize: 13, textAlign: 'center' }}>
           © {new Date().getFullYear()} Tracely AI — Insider Thread detection 

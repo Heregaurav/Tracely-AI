@@ -38,13 +38,26 @@ function threatLevel(s) {
   return 'NORMAL'
 }
 
+// Detect if viewport is mobile/tablet (≤900px)
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 900)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 export default function App() {
   const [page, setPage] = useState('landing')
   const [pageParams, setPageParams] = useState({})
+  // Desktop: collapsed = sidebar hidden. Mobile: collapsed = drawer closed.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [clock, setClock] = useState('')
   const [theme, setTheme] = useState(() => localStorage.getItem('tracely-theme') || 'dark')
   const { data:stats, refetch } = usePolling('/api/stats', 30000)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString('en-GB'))
@@ -58,67 +71,50 @@ export default function App() {
     localStorage.setItem('tracely-theme', theme)
   }, [theme])
 
+  // Close sidebar drawer when navigating on mobile
+  const handleNavClick = (id) => {
+    navigate(id)
+  }
+
   const level = threatLevel(stats)
   const badge = (stats?.tier_distribution?.CRITICAL||0) + (stats?.tier_distribution?.HIGH||0)
   const { Component } = PAGES[page] || PAGES.overview
   const isLight = theme === 'light'
 
-  // Navigate and push a history entry so browser back/forward work
-  const navigate = (pageId, params, replace = false) => {
+  const navigate = (pageId, params) => {
     setPage(pageId)
     setPageParams(params || {})
-    try {
-      const url = new URL(window.location.href)
-      if (pageId === 'landing') {
-        url.search = ''
-      } else {
-        const sp = new URLSearchParams()
-        sp.set('page', pageId)
-        if (params && typeof params === 'object') {
-          Object.entries(params).forEach(([k, v]) => {
-            if (v !== undefined && v !== null) sp.set(k, String(v))
-          })
-        }
-        url.search = sp.toString()
-      }
-
-      const state = { page: pageId, params: params || {} }
-      if (replace) window.history.replaceState(state, '', url.pathname + url.search)
-      else window.history.pushState(state, '', url.pathname + url.search)
-    } catch (e) {
-      // ignore (e.g., SSR)
-    }
+    if (isMobile) setSidebarCollapsed(true)
+    try{
+      const url = pageId === 'landing' ? '/' : `?page=${pageId}`
+      window.history.pushState({ page: pageId, params: params || {} }, '', url)
+    }catch(e){/* ignore in weird envs */}
   }
 
-  // Initialize page from URL / history on mount and listen for back/forward
+  // Sync browser back/forward with app state
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      const p = params.get('page') || (window.history.state && window.history.state.page) || 'landing'
+    const onPop = (e) => {
+      const st = e.state || {}
+      const p = st.page || new URLSearchParams(window.location.search).get('page') || 'landing'
       setPage(p)
-      setPageParams((window.history.state && window.history.state.params) || {})
-      // replace initial state so popstate has state object
-      window.history.replaceState({ page: p, params: (window.history.state && window.history.state.params) || {} }, '', window.location.href)
-
-      const onPop = (ev) => {
-        const st = ev.state
-        if (st && st.page) {
-          setPage(st.page)
-          setPageParams(st.params || {})
-        } else {
-          // fallback to URL
-          const qs = new URLSearchParams(window.location.search)
-          const q = qs.get('page') || 'landing'
-          setPage(q)
-          setPageParams({})
-        }
-      }
-      window.addEventListener('popstate', onPop)
-      return () => window.removeEventListener('popstate', onPop)
-    } catch (e) {
-      // ignore
+      setPageParams(st.params || {})
     }
+    window.addEventListener('popstate', onPop)
+    // ensure current entry has state so back/forward works
+    if (!window.history.state) {
+      const initial = new URLSearchParams(window.location.search).get('page') || page
+      window.history.replaceState({ page: initial, params: pageParams }, '', initial === 'landing' ? '/' : `?page=${initial}`)
+      setPage(initial)
+    }
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
+
+  // On desktop: sidebar open = marginLeft = var(--sidebar), closed = 0
+  // On mobile: sidebar is always an overlay, so main is always margin 0
+  const mainMargin = (!isMobile && !sidebarCollapsed) ? 'var(--sidebar)' : '0'
+
+  // Backdrop visible when mobile drawer is open
+  const backdropVisible = isMobile && !sidebarCollapsed
 
   if (page === 'landing') {
     const LandingComp = PAGES.landing.Component
@@ -133,19 +129,19 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* ── Mobile backdrop — closes sidebar on tap ── */}
+      <div
+        className={`sidebar-backdrop${backdropVisible ? ' visible' : ''}`}
+        onClick={() => setSidebarCollapsed(true)}
+        aria-hidden="true"
+      />
+
       {/* ── Sidebar ── */}
       <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sb-brand">
-          {/* <div className="sb-logo">
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', color: '#fff', marginLeft: 4}}>TA</span>
-          </div> */}
           <div>
             <div className="sb-name">Tracely AI</div>
-            {/* <div className="sb-ver">Bring Imposter Down</div> */}
           </div>
-          {/* <button className="icon-btn" style={{ marginLeft: 'auto' }} onClick={() => setSidebarCollapsed(s => !s)} title={sidebarCollapsed ? 'Expand' : 'Collapse sidebar'}>
-            {sidebarCollapsed ? <LayoutDashboard size={14} /> : <LayoutDashboard size={14} />}
-          </button> */}
         </div>
 
         <nav className="sb-nav">
@@ -158,7 +154,7 @@ export default function App() {
                   <button
                     key={id}
                     className={`sb-item${page===id?' active':''}`}
-                    onClick={() => navigate(id)}
+                    onClick={() => handleNavClick(id)}
                   >
                     <Icon size={14} />
                     {lbl}
@@ -186,10 +182,16 @@ export default function App() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="main" style={{ marginLeft: sidebarCollapsed ? 0 : 'var(--sidebar)' }}>
+      <div className="main" style={{ marginLeft: mainMargin }}>
         <header className="topbar">
           <div className="topbar-l">
-            <button className="icon-btn hamburger" onClick={() => setSidebarCollapsed(s => !s)} title="Toggle menu" style={{ padding: 6, marginRight: 8 }}>
+            <button
+              className="icon-btn hamburger"
+              onClick={() => setSidebarCollapsed(s => !s)}
+              title="Toggle menu"
+              aria-label="Toggle navigation"
+              style={{ padding: 6, marginRight: 4 }}
+            >
               <Menu size={16} />
             </button>
             <span className="pg-title">{PAGES[page]?.label}</span>
@@ -216,7 +218,7 @@ export default function App() {
               <span className="theme-toggle-label">{isLight ? 'Soft Light' : 'Night Mode'}</span>
             </button>
             <span className="clock">{clock}</span>
-            <button className="icon-btn" onClick={refetch} title="Refresh data">
+            <button className="icon-btn" onClick={refetch} title="Refresh data" aria-label="Refresh data">
               <RefreshCw size={13} />
             </button>
           </div>

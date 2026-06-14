@@ -100,7 +100,7 @@ export default function Departments() {
             />
           </div>
 
-          <div className="g2">
+          <div className="g2 departments-grid">
             <div className="card">
               <div className="card-h"><span className="card-t">Department Hotspots</span></div>
               <div className="card-b">

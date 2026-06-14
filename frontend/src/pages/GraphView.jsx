@@ -334,7 +334,7 @@ export default function GraphView({ userId, onBack }) {
       {loading ? <Loading text="Rendering user graph…" /> : !nodes.length ? (
         <Empty text="No graph data available for this user" />
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'1.45fr .75fr', gap:18 }}>
+        <div className="graph-grid">
           <div className="card">
             <div className="card-h">
               <span className="card-t">Interaction Graph</span>
@@ -364,11 +364,11 @@ export default function GraphView({ userId, onBack }) {
               </div>
             </div>
             <div className="card-b" style={{ padding: 8 }}>
-              <div ref={mountRef} style={{ width: '100%', height: 560 }} className="scene-container" />
+              <div ref={mountRef} className="scene-container" />
             </div>
           </div>
 
-          <div style={{ display:'grid', gap:16, alignContent:'start' }}>
+          <div className="graph-side">
             <div className="card">
               <div className="card-h"><span className="card-t">Selected Node</span></div>
               <div className="card-b">
