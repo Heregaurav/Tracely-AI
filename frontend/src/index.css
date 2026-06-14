@@ -972,3 +972,28 @@ button{font-family:inherit;cursor:pointer}
 
 /* Ensure main content uses full width when sidebar collapsed */
 .main[style*="margin-left: 0"]{margin-left:0!important}
+
+/* Landing responsive tweaks */
+@media (max-width: 900px) {
+  .landing-full { padding: 20px 14px; }
+  .landing-card { padding: 20px; border-radius:12px; margin: 0 auto; width: calc(100% - 28px); }
+  .brand-title { font-size: 40px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .feature-panel { padding: 14px; }
+  .feature-panel-h { gap: 10px; align-items: flex-start; }
+  .feature-icon { width:40px;height:40px;border-radius:10px; }
+  .feature-value { font-size: 16px; }
+  .feature-sub { font-size: 13px; }
+  .hero-description { font-size: 15px; padding: 12px; white-space: normal; width:100%; overflow:visible }
+  .cta-container { display:flex; justify-content:center }
+  .button2 { padding: 12px 16px; font-size: 16px; display:flex; align-items:center; gap:8px }
+  .button2 svg { width:28px;height:28px }
+}
+
+@media (max-width: 420px) {
+  .brand-title { font-size: 28px; }
+  .landing-card { padding: 14px; }
+  .feature-value { font-size: 14px }
+  .feature-sub { font-size: 12px }
+  .button2 { padding: 10px 12px; font-size: 15px }
+}
