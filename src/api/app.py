@@ -35,7 +35,7 @@ app = Flask(__name__, static_folder="../../dashboard/static",
             template_folder="../../dashboard/templates")
 
 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5000")
 
 CORS(
     app,
