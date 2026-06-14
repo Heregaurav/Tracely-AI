@@ -21,5 +21,5 @@ export default defineConfig({
       '/health': { target: 'http://localhost:5000', changeOrigin: true },
     }
   },
-  build: { outDir: '../dashboard/static/react' }
+  build: { outDir: 'dist' }
 })
