@@ -37,17 +37,18 @@ app = Flask(__name__, static_folder="../../dashboard/static",
 
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5000")
 
-CORS(
-    app,
-    resources={
-        r"/api/*": {
-            "origins": [
-                frontend_url,
-                "http://localhost:5173"
-            ]
-        }
-    }
-)
+# CORS(
+#     app,
+#     resources={
+#         r"/api/*": {
+#             "origins": [
+#                 frontend_url,
+#                 "http://localhost:5173"
+#             ]
+#         }
+#     }
+# )
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ---------------------------------------------------------------------------
 # Data loader — loads parquet files into memory once at startup
