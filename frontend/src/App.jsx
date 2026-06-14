@@ -63,10 +63,62 @@ export default function App() {
   const { Component } = PAGES[page] || PAGES.overview
   const isLight = theme === 'light'
 
-  const navigate = (pageId, params) => {
+  // Navigate and push a history entry so browser back/forward work
+  const navigate = (pageId, params, replace = false) => {
     setPage(pageId)
     setPageParams(params || {})
+    try {
+      const url = new URL(window.location.href)
+      if (pageId === 'landing') {
+        url.search = ''
+      } else {
+        const sp = new URLSearchParams()
+        sp.set('page', pageId)
+        if (params && typeof params === 'object') {
+          Object.entries(params).forEach(([k, v]) => {
+            if (v !== undefined && v !== null) sp.set(k, String(v))
+          })
+        }
+        url.search = sp.toString()
+      }
+
+      const state = { page: pageId, params: params || {} }
+      if (replace) window.history.replaceState(state, '', url.pathname + url.search)
+      else window.history.pushState(state, '', url.pathname + url.search)
+    } catch (e) {
+      // ignore (e.g., SSR)
+    }
   }
+
+  // Initialize page from URL / history on mount and listen for back/forward
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const p = params.get('page') || (window.history.state && window.history.state.page) || 'landing'
+      setPage(p)
+      setPageParams((window.history.state && window.history.state.params) || {})
+      // replace initial state so popstate has state object
+      window.history.replaceState({ page: p, params: (window.history.state && window.history.state.params) || {} }, '', window.location.href)
+
+      const onPop = (ev) => {
+        const st = ev.state
+        if (st && st.page) {
+          setPage(st.page)
+          setPageParams(st.params || {})
+        } else {
+          // fallback to URL
+          const qs = new URLSearchParams(window.location.search)
+          const q = qs.get('page') || 'landing'
+          setPage(q)
+          setPageParams({})
+        }
+      }
+      window.addEventListener('popstate', onPop)
+      return () => window.removeEventListener('popstate', onPop)
+    } catch (e) {
+      // ignore
+    }
+  }, [])
 
   if (page === 'landing') {
     const LandingComp = PAGES.landing.Component
@@ -106,7 +158,7 @@ export default function App() {
                   <button
                     key={id}
                     className={`sb-item${page===id?' active':''}`}
-                    onClick={() => setPage(id)}
+                    onClick={() => navigate(id)}
                   >
                     <Icon size={14} />
                     {lbl}

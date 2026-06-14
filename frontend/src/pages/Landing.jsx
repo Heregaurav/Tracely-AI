@@ -6,23 +6,19 @@ import {
   MoveRight,
   Radar,
   Rocket,
-  Network
+  Network,
+  CircleArrowRight
 } from "lucide-react";
 export default function Landing({ onNavigate }) {
   return (
     <div className="landing-full">
-        <div style={{ textAlign: 'center', marginBottom: 30 }}>
-          <div  className="brand-title" style={{ fontSize: 55, fontWeight: 800, color: 'var(--accent)', letterSpacing: '.16em' }}>TRACELY AI</div>
-          <h1 style={{ marginTop: 8, fontSize: 20, lineHeight: 1.05 }}> Insider Thread Detector  </h1>
+        <div style={{ textAlign: 'center', marginBottom: 50 }}>
+          <div  className="brand-title" style={{ fontSize: 55, fontWeight: 800, color: '#c4e201', letterSpacing: '.16em' }}>TRACELY AI</div>
+    
         </div>
-      <div className="landing-card">
-        <div className="hero-description" style={{ color: 'var(--t2)', marginTop: 15, fontSize: 15, textAlign: 'center' ,padding:15, }}>
-          Tracely AI analyzes user activity, telemetry and relationship signals to surface suspicious connection
-          patterns and prioritize high-confidence anomalies for investigation. Fast to deploy, interpretable scores,
-          and visual tools for small security teams.
-        </div>
-
-        <div className="feature-grid" style={{ marginTop: 18 }}>
+      <div className="landing-card cards-wrapper" style={{ marginTop: 48 }}>
+      
+        <div className="feature-grid" style={{ marginTop: 22 }}>
           <div className="feature-panel">
             <div className="feature-panel-h">
               <div className="feature-icon">
@@ -33,12 +29,12 @@ export default function Landing({ onNavigate }) {
                 <div className="feature-value">Relationship scoring</div>
               </div>
             </div>
-            <div className="feature-sub">Compute centrality and intensity metrics to detect cross-entity anomalies.</div>
+            <div className="feature-sub">Maps the hidden interactions between users, devices, and files to uncover coordinated anomalies and lateral movement that traditional rules miss.</div>
           </div>
 
-          <div className="feature-panel">
+          <div className="feature-panel"  >
             <div className="feature-panel-h">
-              <div className="feature-icon">
+              <div className="feature-icon" >
                 <Radar/>
               </div>
               <div>
@@ -46,7 +42,7 @@ export default function Landing({ onNavigate }) {
                 <div className="feature-value">Actionable signals</div>
               </div>
             </div>
-            <div className="feature-sub">Prioritize high-risk subjects and streamline analyst workflows.</div>
+            <div className="feature-sub">Evaluates behavior against an employee's historical baseline to generate prioritized risk scores, helping analysts focus instantly on high-confidence alerts</div>
           </div>
 
           <div className="feature-panel">
@@ -55,24 +51,32 @@ export default function Landing({ onNavigate }) {
                 <Rocket/>
               </div>
               <div>
-                <div className="feature-label">Lightweight</div>
-                <div className="feature-value">Easy to deploy</div>
+                <div className="feature-label">DYNAMIC RISK SCORING</div>
+                <div className="feature-value">Optimized Risk Engine</div>
               </div>
             </div>
-            <div className="feature-sub">Small footprint, clear outputs — designed for practical use.</div>
+            <div className="feature-sub">Combines lightning-fast tree models with deep learning networks using an optimized 60:40 split. It instantly transforms complex, high-dimensional activity logs into clear, prioritized threat levels in under 25 milliseconds</div>
           </div>
         </div>
+
+        <div className="hero-description" style={{ color: 'var(--t2)', marginTop: 25, fontSize:14, textAlign: 'center' ,padding:15, }}>
+            Tracely AI transforms enterprise logs into high-confidence anomaly alerts, giving small security teams the visual tools needed to investigate threats instantly.
+        </div>
+
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 80 ,marginBottom: 80 , padding:10}}>
           {/* <button className="btn btn-primary" onClick={() => onNavigate?.('overview')}>Explore it now ..</button> */}
           <div className="cta-container">
                 <button
-                    className="btn btn-primary" 
-                    style = {{padding:30 , paddingTop:18 , paddingBottom:18 , fontSize:18}}
+                    className="button2" 
+                    // style = {{padding:30 , paddingTop:18 , paddingBottom:18 , fontSize:18}}
                     onClick={() => onNavigate?.('overview')}
                 >
-                    Explore it now ..
-                    <ArrowRight/>
+                    Explore it now 
+              
+                      <CircleArrowRight size={50} strokeWidth={0.85}  className="text-black" />
+         
+                    
                 </button>
                 </div>
         </div>
