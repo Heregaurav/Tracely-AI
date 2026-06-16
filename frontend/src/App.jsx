@@ -50,8 +50,13 @@ function useIsMobile() {
 }
 
 export default function App() {
-  const [page, setPage] = useState('landing')
-  const [pageParams, setPageParams] = useState({})
+  const [page, setPage] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('page') || 'landing'
+  })
+  const [pageParams, setPageParams] = useState(() => {
+    return window.history.state?.params || {}
+  })
   // Desktop: collapsed = sidebar hidden. Mobile: collapsed = drawer closed.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [clock, setClock] = useState('')
@@ -92,7 +97,7 @@ export default function App() {
   }
 
   // Sync browser back/forward with app state
-  useEffect(() => {
+    useEffect(() => {
     const onPop = (e) => {
       const st = e.state || {}
       const p = st.page || new URLSearchParams(window.location.search).get('page') || 'landing'
@@ -100,12 +105,17 @@ export default function App() {
       setPageParams(st.params || {})
     }
     window.addEventListener('popstate', onPop)
-    // ensure current entry has state so back/forward works
+
+    // Only set initial history state if none exists, without overriding the page
     if (!window.history.state) {
-      const initial = new URLSearchParams(window.location.search).get('page') || page
-      window.history.replaceState({ page: initial, params: pageParams }, '', initial === 'landing' ? '/' : `?page=${initial}`)
-      setPage(initial)
+      const current = new URLSearchParams(window.location.search).get('page') || page
+      window.history.replaceState(
+        { page: current, params: pageParams },
+        '',
+        current === 'landing' ? '/' : `?page=${current}`
+      )
     }
+
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
