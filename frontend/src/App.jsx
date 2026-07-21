@@ -180,8 +180,8 @@ export default function App() {
 
         <div className="sb-foot">
           <div className="sb-live">
-            <div className="sb-dot" />
-            LIVE MONITORING
+            {/* <div className="sb-dot" /> */}
+              Monitoring
           </div>
           <div className="sb-info">
             {stats
