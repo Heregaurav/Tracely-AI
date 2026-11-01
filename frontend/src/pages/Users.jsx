@@ -9,16 +9,16 @@ const TIERS = ['ALL','CRITICAL','HIGH','MEDIUM','LOW','NORMAL']
 
 function UCard({ u, onClick }) {
   const tier = u.risk_tier || 'NORMAL'
-  const name = u.name || u.user || '?'
+  const accountId = u.account_id || u.user || '?'
   const graphScore = u.graph_score || 0
   return (
-    <div className={`ucard ${tier}`} onClick={() => onClick(u.user)}>
+    <div className={`ucard ${tier}`} onClick={() => onClick(accountId)}>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <Avatar name={name} tier={tier} size={38}/>
+          <Avatar name={accountId} tier={tier} size={38}/>
           <div>
-            <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{name}</div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--t3)',marginTop:2}}>{u.user}</div>
+            <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>Source account</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--t3)',marginTop:2}}>ID: {accountId}</div>
           </div>
         </div>
         <Badge tier={tier}/>
@@ -48,13 +48,13 @@ function UCard({ u, onClick }) {
 
       <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:12}}>
         <span className="micro-chip"><Eye size={11}/> avg {u.avg_risk_score?.toFixed(1) || '0.0'}</span>
-        <span className="micro-chip"><ShieldAlert size={11}/> {u.high_risk_days || 0} high-risk days</span>
+        <span className="micro-chip"><ShieldAlert size={11}/> {u.high_risk_days || 0} high-risk windows</span>
         <span className="micro-chip"><Waves size={11}/> trend {u.trend || 'stable'}</span>
         <span className="micro-chip">graph {u.graph_connections_count || 0} links</span>
       </div>
       <div className="graph-score-panel" style={{ marginTop: 12 }}>
         <div className="graph-score-head">
-          <span>Graph Score</span>
+          <span>Graph novelty index</span>
           <strong style={{ color: graphScore >= 70 ? 'var(--red)' : graphScore >= 40 ? 'var(--yellow)' : 'var(--green)' }}>{graphScore.toFixed(1)}</strong>
         </div>
         <div className="graph-progress">
@@ -78,11 +78,12 @@ export default function Users({ onNavigate }) {
   const [sc,    setSC]    = useState('max_risk_score')
   const [asc,   setAsc]   = useState(false)
   const [sel,   setSel]   = useState(null)
+  const [page, setPage] = useState(1)
 
-  const { data, loading } = useApi(
+  const { data, loading, error } = useApi(
     tier==='ALL'
-      ? `/api/users?sort=${sc}&order=${asc?'asc':'desc'}&limit=500`
-      : `/api/users?tier=${tier}&sort=${sc}&order=${asc?'asc':'desc'}&limit=500`,
+      ? `/api/users?sort=${sc}&order=${asc?'asc':'desc'}&limit=50&page=${page}`
+      : `/api/users?tier=${tier}&sort=${sc}&order=${asc?'asc':'desc'}&limit=50&page=${page}`,
     [tier, sc, asc]
   )
 
@@ -91,8 +92,9 @@ export default function Users({ onNavigate }) {
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(u =>
+        u.account_id?.toLowerCase().includes(q) ||
+        u.display_name?.toLowerCase().includes(q) ||
         u.user?.toLowerCase().includes(q) ||
-        u.name?.toLowerCase().includes(q) ||
         u.department?.toLowerCase().includes(q)
       )
     }
@@ -116,6 +118,8 @@ export default function Users({ onNavigate }) {
 
   return (
     <div className="page">
+      {error && <p role="alert">{error}</p>}
+      <div style={{display: 'flex', gap: 12}}><button className="btn" disabled={page === 1} onClick={() => setPage(p => p-1)}>Previous</button><span>Page {page} · {data?.total ?? 0} users</span><button className="btn" disabled={page*50 >= (data?.total || 0)} onClick={() => setPage(p => p+1)}>Next</button></div>
       {sel && <UserModal key={sel} userId={sel} onClose={() => setSel(null)} onViewGraph={(userId) => { setSel(null); onNavigate?.('graph', { userId }); }} />}
 
       <div className="hero" style={{ marginBottom: 20 }}>
@@ -123,7 +127,7 @@ export default function Users({ onNavigate }) {
           <div className="hero-kicker">User Watchlist</div>
           <h1 className="hero-title"> Reveal Hidden User Threats</h1>
           <p className="hero-copy">
-            Search, sort, and open individual dossiers to inspect behavior signals like files accessed, USB activity, external emails, sensitive file access, and session duration.
+            Search, sort, and open individual dossiers to inspect observed activity counts, historical deviations, risk indices and source-backed evidence.
           </p>
         </div>
         <div className="hero-chip">{summary.total} users in current view</div>
@@ -168,7 +172,7 @@ export default function Users({ onNavigate }) {
       {loading ? <Loading text="Building watchlist…"/> : users.length===0 ? <Empty text="No subjects found"/> :
         view==='grid' ? (
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(268px,1fr))',gap:14}}>
-            {users.map(u=><UCard key={u.user} u={u} onClick={setSel}/>)}
+            {users.map(u=><UCard key={u.account_id || u.user} u={u} onClick={setSel}/>)}
           </div>
         ) : (
           <div className="card" style={{overflowX:'auto'}}>
@@ -181,19 +185,19 @@ export default function Users({ onNavigate }) {
                   {sortHeader('risk_tier', 'TIER')}
                   {sortHeader('graph_score', 'GRAPH')}
                   {sortHeader('department', 'DEPT')}
-                  {sortHeader('high_risk_days', 'HIGH DAYS')}
+                  {sortHeader('high_risk_days', 'HIGH WINDOWS')}
                   <th>TREND</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(u=>(
-                  <tr key={u.user} onClick={()=>setSel(u.user)}>
+                  <tr key={u.account_id || u.user} onClick={()=>setSel(u.account_id || u.user)}>
                     <td>
                       <div style={{display:'flex',alignItems:'center',gap:10}}>
-                        <Avatar name={u.name||u.user} tier={u.risk_tier} size={30}/>
+                        <Avatar name={u.display_name || u.account_id || u.user} tier={u.risk_tier} size={30}/>
                         <div>
-                          <div style={{fontSize:13,color:'var(--t1)',fontWeight:500}}>{u.name||u.user}</div>
-                          <div className="mono" style={{marginTop:1}}>{u.user}</div>
+                          <div style={{fontSize:13,color:'var(--t1)',fontWeight:500}}>Source account</div>
+                          <div className="mono" style={{marginTop:1}}>ID: {u.user}</div>
                         </div>
                       </div>
                     </td>
@@ -202,7 +206,7 @@ export default function Users({ onNavigate }) {
                     <td><Badge tier={u.risk_tier}/></td>
                     <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:u.graph_score>=70?'var(--red)':u.graph_score>=40?'var(--yellow)':'var(--green)'}}>{u.graph_score?.toFixed(1) || '0.0'}</span></td>
                     <td style={{fontSize:12,color:'var(--t2)'}}>{u.department||'—'}</td>
-                    <td><span className="mono">{u.high_risk_days}d</span></td>
+                    <td><span className="mono">{u.high_risk_days}</span></td>
                     <td><TrendBadge dir={u.trend}/></td>
                   </tr>
                 ))}

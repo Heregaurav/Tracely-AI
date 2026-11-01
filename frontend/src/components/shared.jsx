@@ -63,7 +63,7 @@ export function Avatar({ name = '', tier = 'NORMAL', size = 34 }) {
 
 export function TrendBadge({ dir }) {
   const map = { up:['↑','var(--red)'], down:['↓','var(--green)'], stable:['→','var(--t3)'] }
-  const [icon, color] = map[dir] || map.stable
+  const [icon, color] = map[dir] || ['—','var(--t3)']
   return <span style={{ color, fontSize:13, fontWeight:700 }}>{icon}</span>
 }
 

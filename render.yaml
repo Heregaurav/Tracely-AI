@@ -1,8 +1,45 @@
+# API-only reference blueprint. Provision identity and durable artifact storage
+# before deployment; recorded artifact paths must match durable storage.
 services:
   - type: web
-    name: tracely-ai
-    env: python
-    repo: https://github.com/Heregaurav/Tracely-AI
+    name: tracely-ai-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python -m alembic upgrade head
+    startCommand: gunicorn -c gunicorn.conf.py src.api.app:app
+    healthCheckPath: /health/live
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.11 # Specify your version here
+        value: 3.11.11
+      - key: APP_ENV
+        value: production
+      - key: BIND
+        value: 0.0.0.0:10000
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: OIDC_ISSUER
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_REDIRECT_URI
+        sync: false
+      - key: OIDC_ROLES
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ARTIFACT_ROOT
+        sync: false
+      - key: FEATURE_PATH
+        sync: false
+      - key: DATASET_ID
+        value: spedia-v2
+      - key: REPLAY_DIRECTORY
+        sync: false
+      - key: REALISTIC_REPLAY_DIRECTORY
+        sync: false
+      - key: INFERENCE_CONTEXT_DIRECTORY
+        sync: false

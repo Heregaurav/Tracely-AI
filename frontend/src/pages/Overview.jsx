@@ -13,7 +13,7 @@ export default function Overview({ onNavigate }) {
   const { data:tl }      = useApi('/api/timeline?days=60')
   const { data:depts }   = useApi('/api/departments')
 
-  const chartData = (tl?.timeline||[]).map(d => ({ date:(d.day||'').slice(5), avg:+(d.risk_score_avg||0).toFixed(1), max:+(d.risk_score_max||0).toFixed(1) }))
+  const chartData = (tl?.timeline||[]).map(d => ({ date:d.window_start || `Day ${d.relative_day}`, avg:+(d.risk_score_avg||0).toFixed(1), max:+(d.risk_score_max||0).toFixed(1) }))
   const deptData  = (depts?.departments||[]).sort((a,b)=>b.avg_risk-a.avg_risk).slice(0,8).map(d=>({name:d.department,v:+d.avg_risk.toFixed(1)}))
   const tierDist  = stats?.tier_distribution || {}
   const trendPct  = stats?.risk_trend_pct || 0
@@ -23,7 +23,7 @@ export default function Overview({ onNavigate }) {
     {label:'OPEN ALERTS',   val:stats?.open_alerts,              color:'c-orange',  sub:'require review'},
     {label:'HIGH RISK',      val:stats?.high_risk_users,          color:'c-red',    sub:'users flagged'},
     {label:'CRITICAL',       val:stats?.critical_users,           color:'c-red',    sub:'immediate action'},
-    {label:'AVG RISK SCORE', val:stats?.avg_risk_score?.toFixed(1),color:'c-purple',sub:`${Math.abs(trendPct).toFixed(1)}% vs last week`,trend:trendPct>0?'up':trendPct<0?'down':'stable'},
+    {label:'AVG RISK SCORE', val:stats?.avg_risk_score?.toFixed(1),color:'c-purple',sub:'closed user-hour observations',trend:trendPct>0?'up':trendPct<0?'down':'stable'},
   ]
 
   return (

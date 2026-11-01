@@ -70,7 +70,7 @@ export default function Heatmap() {
                   <div className="heatmap-dept-label">
                     <span style={{fontSize:11,color:'var(--t2)',fontFamily:"'JetBrains Mono',monospace",whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{dept}</span>
                   </div>
-                  {DAYS.map((day,i) => {
+                  {DAYS.map((day) => {
                     const s = matrix[dept]?.[day] || 0
                     return (
                       <div key={day} className="hmc"
