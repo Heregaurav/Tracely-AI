@@ -39,3 +39,44 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Real source files, provenance, checkpoints and versioned run artifacts
+/data/lanl/
+/data/runs/
+/data/artifacts/
+
+# All manually acquired raw sources, including compressed LANL files
+/data/raw/
+
+# Local real-data deployment state and private development settings
+/data/runtime/
+.env.lanl.local
+
+# User-supplied SPEDIA source stays immutable and outside version control
+/logs_SPEDIA_annotated_en.csv
+/logs_SPEDIA_annoted_en.csv
+/data/spedia/
+
+# Private frozen SPEDIA demonstration settings
+.env.spedia.local
+
+# Label-free context snapshots and private imported activity
+/data/inference/
+.pytest_cache/
+
+# Private local profiles at any depth; keep the checked-in safe template.
+.env.*
+!.env.example
+
+# SPEDIA-only source publication: datasets, credentials and other experiments stay local.
+/data/
+/r4.1.tar.bz2
+/notebooks/
+/interview-preparation/
+/src/data/cert_*.py
+/src/evaluation/cert_*.py
+/src/models/cert_context_rules.py
+/scripts/*cert*.py
+/tests/test_cert*.py
+
+/frontend/node_modules

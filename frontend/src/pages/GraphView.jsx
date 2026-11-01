@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { apiFetch } from '../hooks/useApi'
 import { Badge, Empty, Loading } from '../components/shared'
 import { ArrowLeft, Cpu, FileText, Mail, Radar, ZoomIn, ZoomOut } from 'lucide-react'
-import { graphColor } from '../utils/graph'
+import { graphColor, stableCoordinate } from '../utils/graph'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { forceSimulation, forceManyBody, forceLink, forceCenter } from 'd3-force-3d'
@@ -41,7 +41,8 @@ function makeLabel(text, color = '#ffffff') {
 export default function GraphView({ userId, onBack }) {
   const [graphData, setGraphData] = useState(null)
   const [userData, setUserData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(userId))
+  const [error, setError] = useState('')
   const [hovered, setHovered] = useState(null)
   const [selected, setSelected] = useState(null)
   const [sceneReady, setSceneReady] = useState(false)
@@ -52,10 +53,10 @@ export default function GraphView({ userId, onBack }) {
   useEffect(() => {
     if (!userId) return
     let active = true
-    Promise.all([
-      apiFetch(`/api/graph?user_id=${userId}`),
-      apiFetch(`/api/users/${userId}`),
-    ])
+    Promise.resolve().then(() => { if (active) { setLoading(true); setError('') } }).then(() => Promise.all([
+      apiFetch(`/api/graph?user_id=${encodeURIComponent(userId)}`),
+      apiFetch(`/api/users/${encodeURIComponent(userId)}`),
+    ]))
       .then(([graphPayload, userPayload]) => {
         if (!active) return
         setGraphData(graphPayload)
@@ -63,7 +64,7 @@ export default function GraphView({ userId, onBack }) {
         const initialNode = graphPayload?.nodes?.find(node => node.type === 'user') || null
         setSelected(initialNode)
       })
-      .catch(console.error)
+      .catch(e => { if (active) setError(e.message) })
       .finally(() => { if (active) setLoading(false) })
 
     return () => { active = false }
@@ -71,7 +72,6 @@ export default function GraphView({ userId, onBack }) {
 
   const nodes = useMemo(() => (graphData?.nodes || []).map(n => ({ ...n })), [graphData])
   const activeNode = selected || hovered || nodes.find(node => node.type === 'user') || null
-  const name = userData?.ldap?.name || userData?.name || userId
   const tier = userData?.risk_tier || 'NORMAL'
 
   // ── Zoom helpers ──────────────────────────────────────────────────────────
@@ -97,7 +97,12 @@ export default function GraphView({ userId, onBack }) {
     const camera = new THREE.PerspectiveCamera(60, width / height, 1, 10000)
     camera.position.set(0, 0, 800)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    let renderer
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }) }
+    catch {
+      Promise.resolve().then(() => setError('WebGL is unavailable. Relationship counts remain available; use a browser with WebGL support for the 3D view.'))
+      return
+    }
     renderer.setSize(width, height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setClearColor(0x000000, 0)
@@ -165,9 +170,10 @@ export default function GraphView({ userId, onBack }) {
     renderer.domElement.addEventListener('pointermove', handlePointer)
     renderer.domElement.addEventListener('click', handleClick)
 
-    setSceneReady(true)
+    const readyFrame = requestAnimationFrame(() => setSceneReady(true))
 
     return () => {
+      cancelAnimationFrame(readyFrame)
       setSceneReady(false)
       cancelAnimationFrame(rafId)
       renderer.domElement.removeEventListener('pointermove', handlePointer)
@@ -177,6 +183,7 @@ export default function GraphView({ userId, onBack }) {
       scene.traverse(o => {
         if (o.geometry) o.geometry.dispose()
         if (o.material) {
+          if (o.material.map) o.material.map.dispose()
           if (Array.isArray(o.material)) o.material.forEach(m => m.dispose())
           else o.material.dispose()
         }
@@ -229,9 +236,9 @@ export default function GraphView({ userId, onBack }) {
       const geom = new THREE.SphereGeometry(radius, 16, 16)
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.1 })
       const mesh = new THREE.Mesh(geom, mat)
-      const px = n.x || (Math.random() * 200 - 100)
-      const py = n.y || (Math.random() * 200 - 100)
-      const pz = n.z || (Math.random() * 200 - 100)
+      const px = n.x ?? stableCoordinate(n.id, 'x')
+      const py = n.y ?? stableCoordinate(n.id, 'y')
+      const pz = n.z ?? stableCoordinate(n.id, 'z')
       mesh.position.set(px, py, pz)
       mesh.userData.node = n
       sref.scene.add(mesh)
@@ -264,9 +271,9 @@ export default function GraphView({ userId, onBack }) {
     // Build simulation
     const simNodes = graphData.nodes.map(n => ({
       id: n.id,
-      x: n.x || (Math.random() - 0.5) * 200,
-      y: n.y || (Math.random() - 0.5) * 200,
-      z: n.z || (Math.random() - 0.5) * 200,
+      x: n.x ?? stableCoordinate(n.id, 'x'),
+      y: n.y ?? stableCoordinate(n.id, 'y'),
+      z: n.z ?? stableCoordinate(n.id, 'z'),
     }))
 
     const nodeById = new Map(simNodes.map(n => [n.id, n]))
@@ -318,19 +325,21 @@ export default function GraphView({ userId, onBack }) {
       <div className="hero" style={{ marginBottom: 20 }}>
         <div>
           <div className="hero-kicker">Graph-Based Threat Detection</div>
-          <h1 className="hero-title">Relationship map for {name}</h1>
+          <h1 className="hero-title">Relationship map for source account</h1>
+          <p className="mono">Account ID: {userId}</p>
           <p className="hero-copy">
-            High graph score indicates unusual connections across devices, files, or emails.
+            Edges show observed user-to-host relationships from the research activity records. The view is bounded; missing node anomaly scores are unavailable.
           </p>
           <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', marginTop:14 }}>
             <button className="btn" onClick={onBack}><ArrowLeft size={14} /> Back to Users</button>
             <Badge tier={tier} />
-            <span className="hero-chip">Graph score {graphData?.graph_score?.toFixed?.(1) ?? '0.0'}</span>
+            <span className="hero-chip">Graph score {graphData?.graph_score?.toFixed?.(1) ?? 'Unavailable'}</span>
             <span className="hero-chip">{graphData?.graph_connections_count || 0} direct connections</span>
           </div>
         </div>
       </div>
 
+      {error && <p role="alert">{error}</p>}
       {loading ? <Loading text="Rendering user graph…" /> : !nodes.length ? (
         <Empty text="No graph data available for this user" />
       ) : (
@@ -384,7 +393,7 @@ export default function GraphView({ userId, onBack }) {
                         </div>
                       </div>
                       <span className="hero-chip" style={{ color: graphColor(activeNode.activity_score), borderColor:`${graphColor(activeNode.activity_score)}55` }}>
-                        {activeNode.activity_score?.toFixed?.(1) ?? '0.0'}
+                        {activeNode.activity_score?.toFixed?.(1) ?? 'Unavailable'}
                       </span>
                     </div>
                     <MetaRow label="Connections" value={activeNode.connections} />
@@ -403,7 +412,7 @@ export default function GraphView({ userId, onBack }) {
                 <div className="graph-score-panel">
                   <div className="graph-score-head">
                     <span>Graph anomaly score</span>
-                    <strong style={{ color: graphColor(graphData?.graph_score) }}>{graphData?.graph_score?.toFixed?.(1) ?? '0.0'}</strong>
+                    <strong style={{ color: graphColor(graphData?.graph_score) }}>{graphData?.graph_score?.toFixed?.(1) ?? 'Unavailable'}</strong>
                   </div>
                   <div className="graph-progress">
                     <div
@@ -415,7 +424,7 @@ export default function GraphView({ userId, onBack }) {
                 <div className="callout" style={{ marginTop: 16 }}>
                   <div className="callout-t">How to Read It</div>
                   <div className="callout-b">
-                    Red nodes indicate unusually dense or active relationships. Yellow indicates moderate activity, while green reflects expected behavior.
+                    Edge weights count source records through the selected observation window. Node color does not establish compromise or employee intent.
                   </div>
                 </div>
               </div>

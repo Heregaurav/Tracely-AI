@@ -1,91 +1,53 @@
-````markdown
-# Tracely AI
+# Tracely AI — SPEDIA
 
-Tracely AI is an insider threat detection system that uses **User and Entity Behavior Analytics (UEBA)** to identify unusual user activity.
+SPEDIA v2 behavioral anomaly review with a React/Vite dashboard, FastAPI backend, PostgreSQL, and frozen scikit-learn inference. This branch contains the SPEDIA implementation only. CERT/LANL pipelines, historical synthetic-demo code, raw datasets, model binaries, local credentials, runtime state and unrelated experiment reports are excluded.
 
-It analyzes employee activity such as logins, file access, USB usage, and emails, then uses machine learning to detect abnormal behavior and assign risk levels.
+The approved model remains `spedia-dcd995bcea1644cabd261b4bcc4dd223`. Its historical result is 86% precision and 46.49% recall on 421 retained test user-hours. Those controlled mixed-origin results do not establish enterprise detection accuracy; source-generation markers correlate perfectly with native event labels. Separate SPEDIA development experiments are not activated automatically.
 
-## Features
-
-- User behavior analysis
-- Insider threat detection
-- Anomaly detection using Isolation Forest and Autoencoder
-- Risk scoring with multiple risk levels
-- Threat alerts and user monitoring
-- Interactive React dashboard
-- REST API for accessing threat and user data
-
-## Tech Stack
-
-- **Frontend:** React.js
-- **Backend:** Python, Flask
-- **Machine Learning:** Scikit-learn, Isolation Forest, Autoencoder
-- **Data Processing:** Pandas, NumPy
-- **Dataset:** CERT Insider Threat Dataset / CERT-like generated data
-
-## How It Works
-
-```text
-Employee Activity Logs
-        ↓
-Data Processing
-        ↓
-Feature Engineering
-        ↓
-Anomaly Detection
-        ↓
-Risk Scoring
-        ↓
-Threat Alerts
-        ↓
-React Dashboard
-````
-
-## Run Locally
-
-### 1. Clone the repository
+## Existing configured installation
 
 ```bash
-git clone <repository-url>
-cd "Tracely AI"
+bash scripts/run_local_neon.sh
 ```
 
-### 2. Install dependencies
+Open http://127.0.0.1:8000. This launcher requires private `.env` and `.env.spedia.local` files, a configured PostgreSQL database and previously provisioned serving assets. It applies pending migrations, verifies/materializes stored assets and starts the backend/frontend. It never retrains on startup. Credentials are not distributed with the repository.
+
+## Backend and frontend separately
+
+Install Python dependencies into a virtual environment and install frontend dependencies with `npm --prefix frontend ci`. Configure environment variables using `.env.example`; do not commit actual credentials. Database schema and frozen assets must be provisioned before serving results.
 
 ```bash
-pip install -r requirements.txt
-
-cd frontend
-npm install
-cd ..
+# In a configured development shell:
+.venv/bin/python -m uvicorn src.api.app:app --host 127.0.0.1 --port 5000
+# In another terminal:
+npm --prefix frontend run dev
 ```
 
-### 3. Start the application
+The backend reads environment variables, not a config.yaml file. `/health/live` checks the process and `/health/ready` checks serving prerequisites. `/docs` is available in development. Production requires the configured organization OIDC flow and durable trusted artifacts.
+
+## Implemented workflows
+
+- Thirty causal observed-user-hour features from native SPEDIA activity.
+- Frozen IF/neural/host-novelty scoring, versioned PostgreSQL scores, and persistent analyst investigations.
+- Historical replay: batch scoring with separate annotations, not a live telemetry collector.
+- Constrained native CSV imports with verified prior context and separate persisted predictions.
+- Role-based API authorization, signed sessions, CSRF checks and digest-verified trusted model loading.
+- Explicit offline SPEDIA feature/training/review scripts. No runtime retraining or automated model replacement.
+
+`src/data/spedia.py` owns the data contract; `src/models/behavioral.py` owns model scoring; `src/inference/` handles new imports; `src/db/` owns publication, replay and persistence; `src/api/` serves FastAPI; `frontend/src/` provides the analyst UI. `migrations/` holds Alembic revisions. Docker/Compose and an API-only Render reference configuration are included; this source push does not deploy them.
+
+## Verification
 
 ```bash
-bash start.sh
+.venv/bin/python -m pytest -q tests
+npm --prefix frontend run lint
+npm --prefix frontend run build
 ```
 
-The backend and frontend will start automatically.
+Real-artifact tests skip when private datasets/checkpoints are unavailable. PostgreSQL integration requires a fresh dedicated `tracely_test*` database through TEST_DATABASE_URL; never point integration tests at a deployed database. Historical browser harnesses that import the retired Flask service are excluded from this snapshot.
 
-## Project Structure
+## Data and artifact provisioning
 
-```text
-Tracely AI/
-├── data/
-├── scripts/
-├── src/
-│   ├── pipeline/
-│   ├── models/
-│   └── api/
-├── frontend/
-├── requirements.txt
-└── start.sh
-```
+Raw CSVs, features, model weights, replay/context files and stored database assets are private/external prerequisites, not Git contents. Restore reviewed assets through your established PostgreSQL asset store or trusted filesystem provisioning process. `scripts/sync_neon_assets.py` performs explicit uploads or local materialization; uploads modify database state and are never run automatically by a Git push.
 
-## Author
-
-**Gaurav Kumar**
-
-```
-```
+No password, private endpoint, session secret or model weight is included in this branch. The local working checkout may contain other experiments; they are not part of this published source tree.

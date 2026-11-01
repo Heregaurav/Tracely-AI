@@ -12,8 +12,10 @@ export default function Timeline() {
   const [si, setSI] = useState(true)
   const { data, loading } = useApi(`/api/timeline?days=${days}`, [days])
 
+  const tierThresholds = data?.tier_thresholds || [40,70,85,95]
+
   const chart = useMemo(()=>(data?.timeline||[]).map(d=>({
-    date:(d.day||'').slice(5),avg:+(d.risk_score_avg||0).toFixed(2),
+    date:d.window_start || `Day ${d.relative_day}`,avg:+(d.risk_score_avg||0).toFixed(2),
     max:+(d.risk_score_max||0).toFixed(2),incidents:d.n_anomalies||0
   })),[data])
 
@@ -27,7 +29,7 @@ export default function Timeline() {
   const toggles=[
     {key:'avg',lbl:'Avg Risk',c:'var(--blue)',s:sa,set:setSA},
     {key:'max',lbl:'Max Risk',c:'var(--orange)',s:sm,set:setSM},
-    {key:'inc',lbl:'Incidents',c:'var(--yellow)',s:si,set:setSI},
+    {key:'inc',lbl:'High-risk observations',c:'var(--yellow)',s:si,set:setSI},
   ]
 
   return(
@@ -44,7 +46,7 @@ export default function Timeline() {
 
       {stats&&(
         <div className="timeline-stats">
-          {[['PEAK SCORE',stats.peak,'var(--red)'],['AVG MEAN',stats.mean,'var(--blue)'],['INCIDENTS',stats.totalInc,'var(--orange)'],['PEAK DATE',stats.peakDate?.slice(0,5)||'—','var(--t2)']].map(([l,v,c])=>(
+          {[['PEAK SCORE',stats.peak,'var(--red)'],['AVG MEAN',stats.mean,'var(--blue)'],['HIGH-RISK HOURS',stats.totalInc,'var(--orange)'],['PEAK HOUR',stats.peakDate||'—','var(--t2)']].map(([l,v,c])=>(
             <div key={l} className="scard c-blue" style={{paddingTop:16,paddingBottom:16}}>
               <div className="s-lbl">{l}</div>
               <div style={{fontSize:24,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:c,marginTop:4}}>{v}</div>
@@ -83,14 +85,14 @@ export default function Timeline() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(255,255,255,0.02)"/>
-                <XAxis dataKey="date" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd" tickFormatter={v=>v?.slice(0,5)}/>
+                <XAxis dataKey="date" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd" tickFormatter={v=>v}/>
                 <YAxis yAxisId="s" domain={[0,100]} tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false}/>
                 <YAxis yAxisId="i" orientation="right" tick={{fill:'var(--t3)',fontSize:10,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false}/>
                 <Tooltip content={<ChartTooltip/>}/>
-                <ReferenceLine yAxisId="s" y={85} stroke="var(--red)"    strokeWidth={0.8} strokeOpacity={0.5}/>
-                <ReferenceLine yAxisId="s" y={70} stroke="var(--orange)" strokeWidth={0.8} strokeOpacity={0.45}/>
-                <ReferenceLine yAxisId="s" y={40} stroke="var(--cyan)"   strokeWidth={0.6} strokeOpacity={0.38}/>
-                {si&&<Bar yAxisId="i" dataKey="incidents" name="Incidents" fill="var(--yellow)" stroke="rgba(0,0,0,0.06)" strokeWidth={0.5} barSize={6} radius={[2,2,0,0]}/>} 
+                <ReferenceLine yAxisId="s" y={tierThresholds[2]} stroke="var(--red)"    strokeWidth={0.8} strokeOpacity={0.5}/>
+                <ReferenceLine yAxisId="s" y={tierThresholds[1]} stroke="var(--orange)" strokeWidth={0.8} strokeOpacity={0.45}/>
+                <ReferenceLine yAxisId="s" y={tierThresholds[0]} stroke="var(--cyan)"   strokeWidth={0.6} strokeOpacity={0.38}/>
+                {si&&<Bar yAxisId="i" dataKey="incidents" name="High-risk observations" fill="var(--yellow)" stroke="rgba(0,0,0,0.06)" strokeWidth={0.5} barSize={6} radius={[2,2,0,0]}/>}
                 {sm&&<Line yAxisId="s" type="monotone" dataKey="max" name="Max Risk" stroke="var(--orange)" strokeWidth={1.6} dot={false} />}
                 {sa&&<Area yAxisId="s" type="monotone" dataKey="avg" name="Avg Risk" stroke="var(--blue)" strokeWidth={2.5} fill="url(#tg)" dot={false}/>}
               </ComposedChart>
@@ -101,10 +103,10 @@ export default function Timeline() {
 
       {!loading&&chart.length>0&&(
         <div className="card" style={{marginTop:14}}>
-          <div className="card-h"><span className="card-t">Incident Calendar</span></div>
+          <div className="card-h"><span className="card-t">Observed-window activity</span></div>
           <div style={{padding:'14px 18px',display:'flex',flexWrap:'wrap',gap:3}}>
             {chart.slice(-60).map((d,i)=>{
-              const c=d.max>=85?`rgba(248,113,113,${.3+Math.min(.6,(d.incidents||1)/5*.6)})`:d.max>=70?`rgba(251,146,60,${.25+(d.avg/100)*.3})`:d.avg>15?`rgba(91,141,246,${.1+(d.avg/100)*.15})`:'rgba(255,255,255,.04)'
+              const c=d.max>=tierThresholds[2]?`rgba(248,113,113,${.3+Math.min(.6,(d.incidents||1)/5*.6)})`:d.max>=tierThresholds[1]?`rgba(251,146,60,${.25+(d.avg/100)*.3})`:d.avg>15?`rgba(91,141,246,${.1+(d.avg/100)*.15})`:'rgba(255,255,255,.04)'
               return<div key={i} title={`${d.date}: max=${d.max.toFixed(1)}, avg=${d.avg.toFixed(1)}`}
                 style={{width:13,height:13,borderRadius:2,background:c,transition:'transform .1s',cursor:'default'}}
                 onMouseOver={e=>e.currentTarget.style.transform='scale(1.5)'}
@@ -112,7 +114,7 @@ export default function Timeline() {
             })}
           </div>
           <div style={{padding:'0 18px 12px',fontSize:10,color:'var(--t3)',fontFamily:"'JetBrains Mono',monospace"}}>
-            Each square = 1 day · Red = HIGH/CRITICAL anomaly detected
+            Each square = 1 observed hour · Red = HIGH/CRITICAL anomaly detected
           </div>
         </div>
       )}

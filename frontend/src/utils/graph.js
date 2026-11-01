@@ -52,3 +52,10 @@ export function layoutGraph(nodes = [], width = 920, height = 560) {
 
   return positions
 }
+
+// Stable display coordinates; topology always comes from the API.
+export function stableCoordinate(id, axis) {
+  let hash = 2166136261
+  for (const char of String(id) + axis) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  return ((hash >>> 0) / 4294967295) * 200 - 100
+}

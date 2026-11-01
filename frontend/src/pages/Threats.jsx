@@ -6,7 +6,7 @@ import { CheckCircle2, Download, LoaderCircle, PlayCircle, Siren, X } from 'luci
 const TC = { CRITICAL:'var(--red)', HIGH:'var(--orange)', MEDIUM:'var(--yellow)', LOW:'var(--cyan)', NORMAL:'var(--green)' }
 const TIERS = ['ALL','CRITICAL','HIGH','MEDIUM','LOW','NORMAL']
 const STATUS_META = {
-  OPEN: { label: 'Resolve', accent: 'var(--orange)', bg: 'rgba(251,146,60,.15)' },
+  OPEN: { label: 'Open', accent: 'var(--orange)', bg: 'rgba(251,146,60,.15)' },
   IN_PROGRESS: { label: 'In Progress', accent: 'var(--blue)', bg: 'rgba(91,141,246,.15)' },
   RESOLVED: { label: 'Resolved', accent: 'var(--green)', bg: 'rgba(52,211,153,.12)' },
 }
@@ -32,7 +32,7 @@ function StatusBadge({ status = 'OPEN' }) {
 function StatusActions({ alert, busyId, onChange, compact = false }) {
   const disabled = busyId === alert.alert_id
   const actions = [
-    { key: 'OPEN', label: 'Resolve', Icon: Siren },
+    { key: 'OPEN', label: 'Open', Icon: Siren },
     { key: 'IN_PROGRESS', label: 'In Progress', Icon: PlayCircle },
     { key: 'RESOLVED', label: 'Resolved', Icon: CheckCircle2 },
   ]
@@ -67,8 +67,66 @@ function StatusActions({ alert, busyId, onChange, compact = false }) {
   )
 }
 
+function AlertEvidence({ explanation = {} }) {
+  const evidenceIds = Array.isArray(explanation.evidence_record_ids) ? explanation.evidence_record_ids : []
+  const metrics = [
+    ['Events in observed hour', explanation.event_count],
+    ['Prior 7-day hourly average', explanation.prior_7d_observed_window_mean],
+    ['Volume deviation', explanation.volume_deviation],
+    ['New hosts', explanation.new_hosts],
+    ['History windows', explanation.history_windows],
+  ]
+  const format = value => typeof value === 'number' ? value.toFixed(2) : value ?? 'Unavailable'
+  const componentLabels = {
+    if: 'Isolation Forest',
+    neural: 'Neural reconstruction',
+    graph: 'Host novelty',
+    pca: 'PCA comparison',
+    supervised: 'Supervised model',
+  }
+  const componentIndices = explanation.component_indices || {}
+  const activeSignals = ['if', 'neural', 'graph'].filter(key => componentIndices[key] != null)
+  const comparisonSignals = Object.entries(componentIndices).filter(([key]) => !activeSignals.includes(key))
+  const shortId = id => id.length > 18 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id
+
+  return (
+    <section className="alert-evidence">
+      <h3>Behavioral evidence</h3>
+      <p>These are model comparison signals, not exact feature attributions or proof of malicious intent.</p>
+      {explanation.limitation && <div className="callout alert-evidence-limit">{explanation.limitation}</div>}
+      <div className="alert-evidence-stats">
+        {metrics.map(([label, value]) => (
+          <div className="alert-evidence-stat" key={label}>
+            <span>{label}</span>
+            <strong>{format(value)}</strong>
+          </div>
+        ))}
+      </div>
+      {activeSignals.length > 0 && <div className="alert-signals">
+        <div className="alert-signals-heading">Active model signals <span>index · 0–100</span></div>
+        {activeSignals.map(key => {
+          const value = Number(componentIndices[key])
+          return <div className="alert-signal" key={key}>
+            <span>{componentLabels[key]}</span>
+            <div className="alert-signal-track"><div style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>
+            <strong>{format(value)}</strong>
+          </div>
+        })}
+      </div>}
+      {comparisonSignals.length > 0 && <details className="alert-evidence-details"><summary>Additional model comparisons ({comparisonSignals.length})</summary><div className="alert-comparison-list">{comparisonSignals.map(([key, value]) => <div key={key}><span>{componentLabels[key] || key}</span><strong>{format(value)}</strong></div>)}</div></details>}
+      <details className="alert-evidence-details"><summary>Source evidence IDs ({evidenceIds.length})</summary>
+        {evidenceIds.length ? <ul className="alert-evidence-ids">{evidenceIds.map(id => <li key={id} title={id}><code>{shortId(id)}</code></li>)}</ul> : <p>No source record IDs supplied.</p>}
+      </details>
+      <details className="alert-evidence-details"><summary>Window metadata</summary>
+        <dl className="alert-window-metadata"><div><dt>Window start</dt><dd>{explanation.window_start || 'Unavailable'}</dd></div><div><dt>Window unit</dt><dd>{explanation.window_unit || 'Unavailable'}</dd></div><div><dt>Window index</dt><dd>{explanation.window_index ?? 'Unavailable'}</dd></div><div><dt>Relative window</dt><dd>{explanation.relative_day ?? 'Unavailable'}</dd></div></dl>
+      </details>
+    </section>
+  )
+}
+
 function AlertModal({ alert, onClose, busyId, onStatusChange }) {
   if (!alert) return null
+  const alertReference = alert.alert_id?.slice(0, 12) || 'Unavailable'
   return (
     <div className="overlay" onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="modal">
@@ -76,10 +134,11 @@ function AlertModal({ alert, onClose, busyId, onStatusChange }) {
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <ScoreDonut score={alert.risk_score||0} size={62}/>
             <div>
-              <div className="modal-title">{alert.alert_id}</div>
+              <div className="modal-title">{alert.alert_type?.replace(/_/g, ' ') || 'Anomaly alert'}</div>
               <div style={{fontSize:12,color:'var(--t3)',fontFamily:"'JetBrains Mono',monospace",marginTop:3}}>
-                {alert.user_id} · {alert.department}
+                Account ID: {alert.user_id || 'Unavailable'}
               </div>
+              <div className="mono" title={alert.alert_id}>Alert {alertReference}{alert.alert_id?.length > 12 ? '…' : ''}</div>
               <div style={{marginTop:7}}><Badge tier={alert.risk_tier}/></div>
             </div>
           </div>
@@ -93,23 +152,27 @@ function AlertModal({ alert, onClose, busyId, onStatusChange }) {
           )}
           <div className="info-grid">
             {[
-              ['Alert ID',   alert.alert_id],
-              ['User',       alert.user_id],
-              ['Department', alert.department],
-              ['Risk Score', alert.risk_score?.toFixed(2)],
+              ['Account ID', alert.user_id || 'Unavailable'],
+              ['Department', alert.department || 'Unavailable'],
+              ['Risk index', alert.risk_score?.toFixed(2)],
               ['IF Score',   alert.if_score!=null ? alert.if_score.toFixed(2) : '—'],
               ['AE Score',   alert.ae_score!=null ? alert.ae_score.toFixed(2)  : '—'],
               ['Alert Type', alert.alert_type?.replace(/_/g,' ')],
               ['Status',     alert.status],
-              ['Date',       alert.timestamp?.slice(0,10)],
-              ['Time',       alert.timestamp?.slice(11,19)||'—'],
+              ['Observation time', alert.timestamp],
+
             ].map(([k,v]) => (
               <div key={k} className="info-cell">
                 <div className="info-l">{k}</div>
-                <div className="info-v" style={{fontFamily:['Risk Score','IF Score','AE Score','Alert ID'].includes(k)?'"JetBrains Mono",monospace':'inherit'}}>{v}</div>
+                <div className="info-v" style={{fontFamily:['Risk index','IF Score','AE Score','Account ID'].includes(k)?'"JetBrains Mono",monospace':'inherit',overflowWrap:'anywhere'}}>{v}</div>
               </div>
             ))}
           </div>
+          <details style={{ marginTop: 16 }}>
+            <summary>Technical identifiers</summary>
+            <p>Alert ID<br/><code className="mono" style={{ overflowWrap:'anywhere' }}>{alert.alert_id}</code></p>
+          </details>
+          <AlertEvidence explanation={alert.explanation} />
           <div style={{ marginTop: 18 }}>
             <div className="info-l" style={{ marginBottom: 10 }}>Threat Workflow</div>
             <StatusActions alert={alert} busyId={busyId} onChange={onStatusChange} />
@@ -127,9 +190,12 @@ export default function Threats() {
   const [sc,    setSC]    = useState('risk_score')
   const [asc,   setAsc]   = useState(false)
   const [busyId,setBusyId]= useState(null)
+  const [message, setMessage] = useState('')
+  const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('')
 
-  const { data, loading, refetch } = useApi(
-    tier==='ALL' ? '/api/threats?limit=500' : `/api/threats?tier=${tier}&limit=500`,
+  const { data, loading, error, refetch } = useApi(
+    `/api/threats?limit=50&page=${page}&sort=${sc === 'relative_day' ? 'time' : 'risk'}${tier === 'ALL' ? '' : `&tier=${tier}`}${statusFilter ? `&status=${statusFilter}` : ''}${search ? `&user_id=${encodeURIComponent(search)}` : ''}`,
     [tier]
   )
 
@@ -150,31 +216,35 @@ export default function Threats() {
   }, [data, search, sc, asc])
 
   const sort = col => { if(col===sc) setAsc(a=>!a); else {setSC(col);setAsc(false)} }
-  const SH = ({col,label}) => (
+  const sortHeader = (col,label) => (
     <th onClick={() => sort(col)}>
       {label}{sc===col?(asc?' ↑':' ↓'):''}
     </th>
   )
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
+    let rows
+    try { rows = (await apiFetch('/api/export?kind=alerts&limit=500')).records } catch (err) { setMessage(err.message); return }
     const cols = ['alert_id','user_id','department','risk_tier','risk_score','alert_type','status','timestamp']
-    const csv  = [cols.join(','), ...alerts.map(a=>cols.map(c=>JSON.stringify(a[c]??'')).join(','))].join('\n')
+    const csv  = [cols.join(','), ...rows.map(a=>cols.map(c => { let v = String(a[c] ?? ''); if (/^[=+@-]/.test(v)) v = "'" + v; return '"' + v.replaceAll('"', '""') + '"' }).join(','))].join('\n')
     const url  = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
-    Object.assign(document.createElement('a'),{href:url,download:'tracely_ai_alerts.csv'}).click()
+    Object.assign(document.createElement('a'),{href:url,download:'tracely_ai_alerts.csv'}).click(); URL.revokeObjectURL(url)
   }
 
   const updateStatus = async (alertId, status) => {
+    setMessage('')
+    const current = alerts.find(a => a.alert_id === alertId)
     setBusyId(alertId)
     try {
       const response = await apiFetch(`/api/threats/${alertId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, version: current?.version }),
       })
       if (sel?.alert_id === alertId) setSel(response.alert)
       refetch()
     } catch (err) {
-      console.error(err)
+      setMessage(err.message); refetch()
     } finally {
       setBusyId(null)
     }
@@ -182,6 +252,7 @@ export default function Threats() {
 
   return (
     <div className="page">
+      {(error || message) && <p role="alert">{error || message}</p>}
       {sel && <AlertModal alert={sel} onClose={() => setSel(null)} busyId={busyId} onStatusChange={updateStatus} />}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
@@ -190,8 +261,8 @@ export default function Threats() {
           <div className="sec-s">{alerts.length} alerts{tier!=='ALL'?` · filtered: ${tier}`:''}</div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-          <input className="search" placeholder="Search user / dept / ID…"
-            value={search} onChange={e=>setSearch(e.target.value)} style={{width:220}}/>
+          <input className="search" placeholder="Exact anonymized user…"
+            value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} style={{width:220}}/>
           <button className="btn" onClick={exportCSV}>
             <Download size={12}/>Export CSV
           </button>
@@ -200,21 +271,27 @@ export default function Threats() {
 
       <div className="pills" style={{marginBottom:16}}>
         {TIERS.map(t => (
-          <button key={t} className={`pill${tier===t?' active':''}`} onClick={() => setTier(t)}>{t}</button>
+          <button key={t} className={`pill${tier===t?' active':''}`} onClick={() => {setTier(t);setPage(1)}}>{t}</button>
         ))}
       </div>
 
+      <div style={{display: 'flex', gap: 10, marginBottom: 12}}>
+        <select aria-label="Alert status" value={statusFilter} onChange={e => {setStatusFilter(e.target.value);setPage(1)}}><option value="">All statuses</option>{['OPEN','IN_PROGRESS','RESOLVED'].map(s => <option key={s}>{s}</option>)}</select>
+        <button className="btn" disabled={page === 1} onClick={() => setPage(p => p-1)}>Previous</button>
+        <span>Page {page} · {data?.total ?? 0} alerts</span>
+        <button className="btn" disabled={page*50 >= (data?.total || 0)} onClick={() => setPage(p => p+1)}>Next</button>
+      </div>
       <div className="card" style={{overflowX:'auto'}}>
         {loading ? <Loading /> : alerts.length===0 ? <Empty text="No alerts match filter" /> : (
           <table className="tbl">
             <thead>
               <tr>
-                <SH col="alert_id"   label="ALERT ID"/>
-                <SH col="user_id"    label="USER"/>
-                <SH col="risk_tier"  label="TIER"/>
-                <SH col="risk_score" label="SCORE"/>
+                {sortHeader("alert_id", "ALERT ID")}
+                {sortHeader("user_id", "USER")}
+                {sortHeader("risk_tier", "TIER")}
+                {sortHeader("risk_score", "SCORE")}
                 <th>TYPE</th>
-                <SH col="timestamp"  label="DATE"/>
+                {sortHeader("relative_day", "RELATIVE DAY")}
                 <th>STATUS</th>
                 <th>ACTIONS</th>
               </tr>
@@ -239,7 +316,7 @@ export default function Threats() {
                     </div>
                   </td>
                   <td><span style={{fontSize:11,color:'var(--t3)'}}>{a.alert_type?.replace(/_/g,' ')}</span></td>
-                  <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--t3)'}}>{a.timestamp?.slice(0,10)}</span></td>
+                  <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--t3)'}}>{a.timestamp || `Day ${a.relative_day}`}</span></td>
                   <td><StatusBadge status={a.status} /></td>
                   <td>
                     <StatusActions alert={a} busyId={busyId} onChange={updateStatus} compact />

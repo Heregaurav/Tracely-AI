@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { LayoutDashboard, Menu, AlertTriangle, Users, BarChart2, TrendingUp, Building2, FileText, RefreshCw, MoonStar, SunMedium, Radar } from 'lucide-react'
 import { usePolling } from './hooks/useApi'
+import { useAuth } from './hooks/authContext'
 import Landing     from './pages/Landing'
 import Overview    from './pages/Overview'
 import Threats     from './pages/Threats'
@@ -9,7 +10,9 @@ import Heatmap     from './pages/Heatmap'
 import Timeline    from './pages/Timeline'
 import Departments from './pages/Departments'
 import Reports     from './pages/Reports'
-import GraphView    from './pages/GraphView'
+import ReplayDetection from './pages/ReplayDetection'
+import NewDataInference from './pages/NewDataInference'
+const GraphView = lazy(() => import('./pages/GraphView'))
 
 const PAGES = {
   landing:     { label:'Welcome',       Component:Landing,     Icon:LayoutDashboard },
@@ -19,13 +22,15 @@ const PAGES = {
   heatmap:     { label:'Risk Heatmap',  Component:Heatmap,     Icon:BarChart2       },
   timeline:    { label:'Timeline',      Component:Timeline,    Icon:TrendingUp      },
   departments: { label:'Departments',   Component:Departments, Icon:Building2       },
+  inference:   { label:'New Data Inference', Component:NewDataInference, Icon:Radar },
+  replay:      { label: 'Replay Detection', Component:ReplayDetection, Icon:Radar },
   reports:     { label:'Reports',       Component:Reports,     Icon:FileText        },
   graph:       { label:'Graph',         Component:GraphView,   Icon:Radar           },
 }
 
 const NAV_GROUPS = [
-  { label:'MONITOR',   ids:['overview','threats','users'] },
-  { label:'ANALYTICS', ids:['heatmap','timeline','departments'] },
+  { label:'MONITOR',   ids:['overview','threats','users','replay','inference'] },
+  { label:'ANALYTICS', ids:['timeline'] },
   { label:'SYSTEM',    ids:['reports'] },
 ]
 
@@ -50,6 +55,7 @@ function useIsMobile() {
 }
 
 export default function App() {
+  const identity = useAuth()
   const [page, setPage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('page') || 'landing'
@@ -83,7 +89,8 @@ export default function App() {
 
   const level = threatLevel(stats)
   const badge = (stats?.tier_distribution?.CRITICAL||0) + (stats?.tier_distribution?.HIGH||0)
-  const { Component } = PAGES[page] || PAGES.overview
+  const permittedPage = identity?.role === 'VIEWER' && ['threats', 'users', 'graph', 'replay', 'inference'].includes(page) ? 'overview' : page
+  const { Component } = PAGES[permittedPage] || PAGES.overview
   const isLight = theme === 'light'
 
   const navigate = (pageId, params) => {
@@ -93,8 +100,10 @@ export default function App() {
     try{
       const url = pageId === 'landing' ? '/' : `?page=${pageId}`
       window.history.pushState({ page: pageId, params: params || {} }, '', url)
-    }catch(e){/* ignore in weird envs */}
+    }catch{/* ignore in weird envs */}
   }
+
+  const initialHistory = useRef({ page, pageParams })
 
   // Sync browser back/forward with app state
     useEffect(() => {
@@ -108,9 +117,9 @@ export default function App() {
 
     // Only set initial history state if none exists, without overriding the page
     if (!window.history.state) {
-      const current = new URLSearchParams(window.location.search).get('page') || page
+      const current = new URLSearchParams(window.location.search).get('page') || initialHistory.current.page
       window.history.replaceState(
-        { page: current, params: pageParams },
+        { page: current, params: initialHistory.current.pageParams },
         '',
         current === 'landing' ? '/' : `?page=${current}`
       )
@@ -158,7 +167,7 @@ export default function App() {
           {NAV_GROUPS.map(({ label, ids }) => (
             <div key={label}>
               <div className="sb-group">{label}</div>
-              {ids.map(id => {
+              {ids.filter(id => identity?.role !== 'VIEWER' || !['threats', 'users', 'graph', 'replay', 'inference'].includes(id)).map(id => {
                 const { label:lbl, Icon } = PAGES[id]
                 return (
                   <button
@@ -234,7 +243,7 @@ export default function App() {
           </div>
         </header>
 
-        <Component onNavigate={navigate} userId={pageParams.userId} onBack={() => navigate('users')} />
+        <Suspense fallback={<div className="page">Loading view…</div>}><Component onNavigate={navigate} userId={pageParams.userId} onBack={() => navigate('users')} /></Suspense>
       </div>
     </div>
   )

@@ -1,16 +1,16 @@
-# React + Vite
+# Tracely AI SPEDIA frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite analyst dashboard for the authenticated FastAPI SPEDIA API. SessionGate manages login; apiFetch sends credentialed requests and CSRF headers; pages consume persisted source-backed results.
 
-Currently, two official plugins are available:
+```bash
+npm ci
+npm run dev
+npm run lint
+npm run build
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Vite serves 127.0.0.1:8000 and proxies /api and /health to 127.0.0.1:5000. Set API_PROXY_TARGET for a different development backend. VITE_API_URL defaults to same-origin requests. Private frontend .env files and build outputs are excluded.
 
-## React Compiler
+Replay is historical playback. New Data Inference accepts only the supported native SPEDIA stream contract with verified prior context. Department metadata is unavailable. Existing graph geometry is display layout over observed user-host associations.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Use the repository README for backend/database/asset prerequisites. Production container builds serve dist through unprivileged Nginx. This source snapshot excludes obsolete Flask-based browser harnesses.
