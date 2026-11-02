@@ -21,6 +21,10 @@ export default function Reports() {
   const development = metrics?.primary_evaluation === 'validation'
   const comparison = development ? metrics?.validation_metrics : metrics?.held_out_metrics
   const selected = metrics?.primary_metrics || comparison?.[metrics?.active_configuration]
+  const sourceSelection = source?.selection_policy && typeof source.selection_policy === 'object'
+    ? [source.selection_policy.scope && `Scope: ${source.selection_policy.scope}`,
+      source.selection_policy.split_strategy && `Split: ${source.selection_policy.split_strategy}`].filter(Boolean).join(' · ')
+    : source?.selection_policy
   const formatMetric = value => value == null ? 'Unavailable' : `${(value * 100).toFixed(2)}%`
   return <div className="page report-page">
     <header className="report-heading"><div><div className="report-kicker">MODEL GOVERNANCE / SPEDIA</div><h1>Model report</h1><p>Frozen evaluation, active configuration, and source provenance.</p></div><div className="report-actions"><button className="btn" onClick={refetch}><RefreshCw size={14}/>Refresh report</button><button className="btn btn-primary" onClick={exportReport}><Download size={14}/>Export scores</button></div></header>
@@ -45,7 +49,7 @@ export default function Reports() {
         <div className="card"><div className="card-h"><span className="card-t">Data source</span></div><div className="card-b">
           <p>{source?.dataset_id}</p><p>Origin: {source?.authenticity}</p>
           <p>SHA-256: <span style={{ overflowWrap: 'anywhere' }}>{source?.sha256}</span></p>
-          <p>Selection: {source?.selection_policy}</p><p>{source?.observation_scope}</p>{(source?.actual_download_url || source?.source_url) && <a className="report-source-link" href={source.actual_download_url || source.source_url} target="_blank" rel="noreferrer">Open source reference <ExternalLink size={13}/></a>}
+          <p>Selection: {sourceSelection}</p><p>{source?.observation_scope}</p>{(source?.actual_download_url || source?.source_url) && <a className="report-source-link" href={source.actual_download_url || source.source_url} target="_blank" rel="noreferrer">Open source reference <ExternalLink size={13}/></a>}
           <p>Annotation scope: {source?.label_reconciliation?.coverage || 'See the preserved model evaluation'}</p>
           <p>{source?.limitations}</p>
         </div></div>
