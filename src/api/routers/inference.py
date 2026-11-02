@@ -30,12 +30,8 @@ router = APIRouter(prefix="/api/inference", tags=["inference"])
 
 def _inference_directory(settings: Settings) -> str:
     value = settings.inference_context_directory
-    if not value:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Verified raw-inference history has not been provisioned.",
-        )
-    return value
+    # Versioned active-model assets take priority inside the inference service.
+    return value or "data/inference/context-v1"
 
 
 

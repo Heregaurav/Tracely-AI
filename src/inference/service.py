@@ -7,14 +7,16 @@ import pandas as pd
 from sqlalchemy import select,text
 from src.data.neon_assets import resolve_asset_path
 from src.data.spedia import FEATURE_NAMES
+from src.data.spedia_behavioral_v6 import NAMES, VERSION, inference_features
 from src.db.models import InferenceRun,InferenceAlert,ModelVersion,AuditLog
 from .artifacts import load_verified_model
+from .runtime import model_directory
 from .raw import (InputError,load_context,parse_csv,timestamp,generate_features,canonical_records,from_records)
 
 
 def active(db,dataset_id):
     row=db.scalar(select(ModelVersion).where(ModelVersion.dataset_id==dataset_id,ModelVersion.active))
-    if row is None or row.feature_version!='spedia-hour-v1':raise InputError('An active compatible frozen SPEDIA model must be published first.')
+    if row is None or row.feature_version not in ('spedia-hour-v1', VERSION):raise InputError('An active compatible frozen SPEDIA model must be published first.')
     return row
 
 
@@ -35,9 +37,10 @@ def stream(db,model,manifest,base):
 
 
 def context_info(factory,directory,dataset_id):
-    manifest,base=load_context(directory)
     with factory() as db:
-        model=active(db,dataset_id);context,token,boundary,_=stream(db,model,manifest,base)
+        model=active(db,dataset_id)
+        manifest,base=load_context(model_directory(model, 'inference_context', directory))
+        context,token,boundary,_=stream(db,model,manifest,base)
         return {'context_token':token,'next_coverage_start':boundary,'model_version':model.id,'threshold':model.report['calibration']['high_threshold'],
             'known_users':sorted(context.user.unique().tolist()),'source_policy':manifest['source_policy'],
             'scope':'New imported predictions; not benchmark evaluation or independent validation.'}
@@ -55,11 +58,11 @@ def import_csv(factory,directory,dataset_id,content,settings,*,actor,allow_fixtu
     start,end=timestamp(settings['coverage_start']),timestamp(settings['coverage_end'])
     if start!=start.floor('h') or end!=end.floor('h') or not pd.Timedelta(0)<end-start<=pd.Timedelta(hours=24):raise InputError('Coverage must contain 1–24 complete aligned hours, with end exclusive.')
     new=parse_csv(content,start,end)
-    manifest,base=load_context(directory)
     payload_sha=hashlib.sha256(content).hexdigest()
     with factory.begin() as db:
         db.execute(text('SELECT pg_advisory_xact_lock(hashtext(:key))'),{'key':'raw-inference:'+dataset_id})
         row=active(db,dataset_id)
+        manifest,base=load_context(model_directory(row, 'inference_context', directory))
         key=json.dumps({'input_sha256':payload_sha,'settings':settings,'model':row.id},sort_keys=True,separators=(',',':'))
         run_id=hashlib.sha256(key.encode()).hexdigest()
         previous=db.get(InferenceRun,run_id)
@@ -69,8 +72,10 @@ def import_csv(factory,directory,dataset_id,content,settings,*,actor,allow_fixtu
         if start!=timestamp(boundary):raise InputError(f'Coverage must start at {boundary}; a gap or overlap would make history incomplete.')
         artifact=resolve_asset_path(row.artifact_path)/'model.joblib'
         model=load_verified_model(artifact,row.artifact_sha256,error_type=InputError)
-        if model.names!=FEATURE_NAMES:raise InputError('Saved feature order differs from the supported inference contract.')
-        features=generate_features(context,new,manifest['time_origin'])
+        expected_names = NAMES if row.feature_version == VERSION else FEATURE_NAMES
+        if model.names!=expected_names:raise InputError('Saved feature order differs from the supported inference contract.')
+        generator = inference_features if row.feature_version == VERSION else generate_features
+        features=generator(context,new,manifest['time_origin'])
         before=joblib.hash(model);score,tiers,components=model.score(features[model.names])
         if joblib.hash(model)!=before:raise InputError('Frozen model changed during inference.')
         predictions=[];alerts=[]

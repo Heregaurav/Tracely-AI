@@ -210,12 +210,24 @@ async def stats(
         )
     )
     observed = model.report["dataset"].get("analyzed_event_count", 0)
+    latest_hour = db.scalar(select(func.max(DailyScore.relative_day)).where(DailyScore.model_version == model.id))
+    hourly_rows = db.execute(select(DailyScore.risk_tier, func.count()).where(
+        DailyScore.model_version == model.id,
+        DailyScore.relative_day >= (latest_hour or 0) - 30 * _windows_per_day(model) + 1,
+    ).group_by(DailyScore.risk_tier)).all()
+    hourly_tiers = {tier: 0 for tier in TIERS}
+    hourly_tiers.update({tier: int(count) for tier, count in hourly_rows})
     return {
         "total_users": total,
         "critical_users": tiers["CRITICAL"],
         "high_risk_users": tiers["HIGH"],
         "open_alerts": open_alerts,
         "tier_distribution": tiers,
+        "hourly_tier_distribution": hourly_tiers,
+        "hourly_observations": sum(hourly_tiers.values()),
+        "user_tier_basis": "Highest observed hourly risk per user over the last 30 data days",
+        "hourly_tier_basis": "Each observed user-hour counted once over the last 30 data days",
+        "model_name": model.report.get("display_name", model.id),
         "avg_risk_score": float(
             db.scalar(select(func.avg(users.c.avg_risk_score))) or 0
         ),
@@ -425,6 +437,7 @@ async def model_metrics(
         "active_configuration", "weights", "models", "parameters", "contract",
         "split_policy", "splits", "scaling", "calibration", "selection_policy",
         "validation_metrics", "held_out_metrics", "benchmark", "limitations",
+        "primary_evaluation", "primary_metrics", "display_name", "fusion",
     )
     return {
         key: model.report.get(key)

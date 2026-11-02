@@ -29,6 +29,7 @@ from src.api.schemas import ReplayDetectRequest
 from src.data.integrity import sha256_file
 from src.db.models import Alert, AuditLog, ModelVersion, ReplayRun
 from src.db.replay import execute_replay, load_replay
+from src.inference.runtime import model_directory
 
 router = APIRouter(prefix="/api/replay", tags=["replay"])
 
@@ -37,7 +38,7 @@ router = APIRouter(prefix="/api/replay", tags=["replay"])
 # Internal helpers (ported from register_replay)
 # ---------------------------------------------------------------------------
 
-def _replay_root(mode: str, settings: Settings) -> Path:
+def _replay_root(mode: str, settings: Settings, model=None) -> Path:
     if mode not in ("analysis", "realistic"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown replay mode"
@@ -47,6 +48,13 @@ def _replay_root(mode: str, settings: Settings) -> Path:
         directory = settings.realistic_replay_directory or (
             str(Path(directory).parent / "replay-realistic-v1") if directory else None
         )
+    if model is None:
+        with _get_factory()() as db:
+            model = db.scalar(select(ModelVersion).where(
+                ModelVersion.dataset_id == settings.dataset_id, ModelVersion.active
+            ))
+    if model is not None:
+        directory = model_directory(model, "replay_" + mode, directory)
     if not directory or not (Path(directory) / "replay_manifest.json").is_file():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -57,9 +65,11 @@ def _replay_root(mode: str, settings: Settings) -> Path:
 
 def _run_root(row: ReplayRun, settings: Settings):
     """Identify which replay directory a persisted run came from."""
+    with _get_factory()() as db:
+        model = db.get(ModelVersion, row.model_version)
     for mode in ("analysis", "realistic"):
         try:
-            directory = _replay_root(mode, settings)
+            directory = _replay_root(mode, settings, model)
         except HTTPException:
             continue
         try:
@@ -274,8 +284,7 @@ async def ground_truth(
         if w["example_outcome"] == "FN":
             w["miss_explanation"] = (
                 f"Score {p['risk_score']:.2f} remained below the frozen threshold. "
-                f"{p['events']} observed events; host novelty component "
-                f"{p['components'].get('graph', 0):.2f}. "
+                f"{p['events']} observed events; inspect the selected model's component indices. "
                 "The annotation marks an attack, but aggregated behavior did not "
                 "trigger this model. These comparisons do not establish a causal "
                 "attribution."

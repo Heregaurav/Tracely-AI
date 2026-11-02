@@ -11,23 +11,32 @@ export default function Overview({ onNavigate }) {
   const { data:stats }   = usePolling('/api/stats', 30000)
   const { data:threats } = usePolling('/api/threats?limit=10', 30000)
   const { data:tl }      = useApi('/api/timeline?days=60')
+  const { data:metrics } = useApi('/api/model-metrics')
+  const primary = metrics?.primary_metrics || metrics?.held_out_metrics?.[metrics?.active_configuration]
   const { data:depts }   = useApi('/api/departments')
 
   const chartData = (tl?.timeline||[]).map(d => ({ date:d.window_start || `Day ${d.relative_day}`, avg:+(d.risk_score_avg||0).toFixed(1), max:+(d.risk_score_max||0).toFixed(1) }))
   const deptData  = (depts?.departments||[]).sort((a,b)=>b.avg_risk-a.avg_risk).slice(0,8).map(d=>({name:d.department,v:+d.avg_risk.toFixed(1)}))
-  const tierDist  = stats?.tier_distribution || {}
+  const tierDist  = stats?.hourly_tier_distribution || stats?.tier_distribution || {}
+  const distributionTotal = stats?.hourly_observations ?? stats?.total_users ?? 0
   const trendPct  = stats?.risk_trend_pct || 0
 
   const cards = [
     {label:'TOTAL USERS',   val:stats?.total_users,              color:'c-blue',   sub:'monitored'},
     {label:'OPEN ALERTS',   val:stats?.open_alerts,              color:'c-orange',  sub:'require review'},
-    {label:'HIGH RISK',      val:stats?.high_risk_users,          color:'c-red',    sub:'users flagged'},
-    {label:'CRITICAL',       val:stats?.critical_users,           color:'c-red',    sub:'immediate action'},
+    {label:'HIGH RISK',      val:stats?.high_risk_users,          color:'c-red',    sub:'users with a high peak hour'},
+    {label:'CRITICAL',       val:stats?.critical_users,           color:'c-red',    sub:'users with a critical peak hour'},
     {label:'AVG RISK SCORE', val:stats?.avg_risk_score?.toFixed(1),color:'c-purple',sub:'closed user-hour observations',trend:trendPct>0?'up':trendPct<0?'down':'stable'},
   ]
 
   return (
     <div className="page">
+      <section className="card gap16" aria-label="Main model result"><div className="card-b">
+        <strong>{metrics?.display_name || stats?.model_name || 'Active SPEDIA model'}</strong>
+        {primary && <p>Precision {(100 * primary.precision).toFixed(2)}% · Recall {(100 * primary.recall).toFixed(2)}% · F1 {(100 * primary.f1).toFixed(2)}% · False-positive rate {(100 * primary.false_positive_rate).toFixed(2)}%</p>}
+        <p>{metrics?.primary_evaluation === 'validation' ? 'Reused development validation; not independent test performance. Source-origin confounding remains.' : 'Historical research evaluation; scores are not probabilities.'}</p>
+        <button className="btn btn-sm" onClick={() => onNavigate('reports')}>View main model report →</button>
+      </div></section>
       <div className="stats-row">
         {cards.map(({label,val,color,sub,trend})=>(
           <div key={label} className={`scard ${color}`}>
@@ -128,11 +137,12 @@ export default function Overview({ onNavigate }) {
         </div>
 
         <div className="card">
-          <div className="card-h"><span className="card-t">Risk Distribution</span></div>
+          <div className="card-h"><span className="card-t">Hourly Risk Distribution</span></div>
           <div className="card-b">
+            <p>{distributionTotal} observed user-hours. Each hour is counted once. User badges and top cards use each user's highest hour over the last 30 data days, so a user can be HIGH even when most hours are LOW.</p>
             {TIERS.map(tier=>{
               const count=tierDist[tier]||0
-              const pct=Math.round((count/(stats?.total_users||1))*100)
+              const pct=Math.round((count/(distributionTotal||1))*100)
               return(
                 <div key={tier} style={{marginBottom:15}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>

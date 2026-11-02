@@ -25,7 +25,7 @@ router = APIRouter(tags=["health"])
 @router.get("/health/live")
 async def live():
     """Liveness probe — always succeeds while the process is running."""
-    return {"status": "ok"}
+    return {"status": "ok", "supported_feature_versions": ["spedia-hour-v1", "spedia-behavioral-v6"]}
 
 
 @router.get("/health")

@@ -48,6 +48,8 @@ async def list_model_versions(
             {
                 "id": m.id,
                 "active": m.active,
+                "feature_version": m.feature_version,
+                "artifact_available": (resolve_asset_path(m.artifact_path) / "model.joblib").is_file(),
                 "created_at": m.created_at.isoformat(),
             }
             for m in rows
@@ -82,7 +84,7 @@ async def activate_model(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found",
         )
-    if model.feature_version != "spedia-hour-v1":
+    if model.feature_version not in ("spedia-hour-v1", "spedia-behavioral-v6"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Model is incompatible with the supported feature contract",

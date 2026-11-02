@@ -57,3 +57,5 @@ should return their data or a specific data/storage validation error, without
 requiring a login. This code change does not push or deploy itself.
 
 Security audit results and remaining public-access risks: [security review](SECURITY_REVIEW.md).
+
+The owner-selected main output is [SPEDIA V6 Maximum](V6_MAIN_MODEL.md). Versioned assets must be materialized before activating a newly staged version. Its main metrics are reused validation, not an independent test.

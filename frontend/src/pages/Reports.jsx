@@ -18,22 +18,24 @@ export default function Reports() {
     } catch (err) { setMessage(err.message) }
   }
   const format = value => value == null ? 'Unavailable' : typeof value === 'number' ? value.toFixed(3) : String(value)
-  const selected = metrics?.held_out_metrics?.[metrics.active_configuration]
-  const formatMetric = value => value == null ? 'Unavailable' : `${(value * 100).toFixed(1)}%`
+  const development = metrics?.primary_evaluation === 'validation'
+  const comparison = development ? metrics?.validation_metrics : metrics?.held_out_metrics
+  const selected = metrics?.primary_metrics || comparison?.[metrics?.active_configuration]
+  const formatMetric = value => value == null ? 'Unavailable' : `${(value * 100).toFixed(2)}%`
   return <div className="page report-page">
-    <header className="report-heading"><div><div className="report-kicker">MODEL GOVERNANCE / SPEDIA V2</div><h1>Model report</h1><p>Frozen evaluation, active configuration, and source provenance.</p></div><div className="report-actions"><button className="btn" onClick={refetch}><RefreshCw size={14}/>Refresh report</button><button className="btn btn-primary" onClick={exportReport}><Download size={14}/>Export scores</button></div></header>
+    <header className="report-heading"><div><div className="report-kicker">MODEL GOVERNANCE / SPEDIA</div><h1>Model report</h1><p>Frozen evaluation, active configuration, and source provenance.</p></div><div className="report-actions"><button className="btn" onClick={refetch}><RefreshCw size={14}/>Refresh report</button><button className="btn btn-primary" onClick={exportReport}><Download size={14}/>Export scores</button></div></header>
     {(error || message) && <div role="alert" className="callout">{error || message}</div>}
     {loading ? <Loading /> : metrics && <>
       {metrics.is_fixture && <div role="alert" className="callout report-fixture-warning"><strong>UNIT TEST FIXTURE ONLY.</strong> These metrics are not real-world evaluation results.</div>}
-      <section className="report-active-summary" aria-label="Active held-out result">
-        <div className="report-active-heading"><div><span className="report-kicker">ACTIVE FROZEN CONFIGURATION</span><h2>{metrics.active_configuration?.replaceAll('_', ' ')}</h2></div><span className="report-scope">Held-out set · {selected?.windows ?? '—'} windows · {selected?.positive_windows ?? '—'} annotated positive</span></div>
-        <div className="report-metrics">{[['Precision', selected?.precision, 'var(--green)'], ['Recall', selected?.recall, 'var(--orange)'], ['F1', selected?.f1, 'var(--cyan)'], ['PR average precision', selected?.pr_auc_average_precision, 'var(--blue)'], ['Alerts', selected?.alert_count, 'var(--yellow)']].map(([label, value, color]) => <div className="report-metric" key={label}><span>{label}</span><strong style={{ color }}>{label === 'Alerts' ? value ?? 'Unavailable' : formatMetric(value)}</strong></div>)}</div>
-        <p className="report-caveat">Held-out result for the frozen selection. Scores are not probabilities; this controlled mixed-origin dataset does not establish independent deployment performance.</p>
+      <section className="report-active-summary" aria-label="Active model evaluation">
+        <div className="report-active-heading"><div><span className="report-kicker">MAIN MODEL OUTPUT</span><h2>{metrics.display_name || metrics.active_configuration?.replaceAll('_', ' ')}</h2></div><span className="report-scope">{development ? 'Reused development validation' : 'Historical held-out set'} · {selected?.windows ?? '—'} windows · {selected?.positive_windows ?? '—'} annotated positive</span></div>
+        <div className="report-metrics">{[['Precision', selected?.precision, 'var(--green)'], ['Recall', selected?.recall, 'var(--orange)'], ['F1', selected?.f1, 'var(--cyan)'], ['PR average precision', selected?.pr_auc_average_precision, 'var(--blue)'], ['False-positive rate', selected?.false_positive_rate, 'var(--orange)'], ['ROC-AUC', selected?.roc_auc, 'var(--blue)'], ['Alerts', selected?.alert_count, 'var(--yellow)']].map(([label, value, color]) => <div className="report-metric" key={label}><span>{label}</span><strong style={{ color }}>{label === 'Alerts' ? value ?? 'Unavailable' : formatMetric(value)}</strong></div>)}</div>
+        <p className="report-caveat">{development ? 'This main result uses previously examined validation data, not an independent test. The 55-feature representation remains source-predictive.' : 'Historical held-out result for the frozen selection.'} Scores are not probabilities and do not establish real-world detection accuracy.</p>
       </section>
       <div className="g2">
         <div className="card"><div className="card-h"><span className="card-t">Active configuration</span></div><div className="card-b">
           {Object.entries({ Version: metrics.version, Configuration: metrics.active_configuration,
-            Weights: Object.entries(metrics.weights || {}).map(([key, value]) => `${key}: ${(value * 100).toFixed(0)}%`).join(' · '), Reconstruction: metrics.models?.reconstruction,
+            Fusion: metrics.fusion, Weights: Object.entries(metrics.weights || {}).map(([key, value]) => `${key}: ${(value * 100).toFixed(0)}%`).join(' · '), Reconstruction: metrics.models?.reconstruction,
             Neural: metrics.models?.neural, Features: metrics.contract?.features.length,
             Scaling: metrics.scaling, Scope: metrics.evaluation_scope }).map(([label,value]) =>
             <p key={label}><strong>{label}:</strong> {format(value)}</p>)}
@@ -48,11 +50,11 @@ export default function Reports() {
           <p>{source?.limitations}</p>
         </div></div>
       </div>
-      <div className="card gap16 report-comparison"><div className="card-h"><span className="card-t">Held-out comparison</span></div><div className="card-b">
-        <p>Selection uses validation data: {metrics.selection_policy}. Metrics use supplied research annotations at user-hour level.</p>
+      <div className="card gap16 report-comparison"><div className="card-h"><span className="card-t">{development ? 'Development evaluation' : 'Historical held-out comparison'}</span></div><div className="card-b">
+        <p>Selection history: {metrics.selection_policy}. Metrics use supplied research annotations at user-hour level.</p>
         <div className="report-split-list">{Object.entries(metrics.splits || {}).map(([name, split]) => <div key={name}><strong>{name}</strong><span>{split.min_time} – {split.max_time}</span><small>{split.windows} windows · {split.events} events</small></div>)}</div>
         <div className="report-table-wrap"><table className="tbl report-table"><thead><tr><th>Model</th><th>Windows</th><th>PR-AP</th><th>ROC-AUC</th><th>Precision</th><th>Recall</th><th>F1</th><th>Alerts</th></tr></thead>
-          <tbody>{Object.entries(metrics.held_out_metrics || {}).map(([name,m]) => <tr key={name} className={name === metrics.active_configuration ? 'report-active-row' : ''}>
+          <tbody>{Object.entries(comparison || {}).map(([name,m]) => <tr key={name} className={name === metrics.active_configuration ? 'report-active-row' : ''}>
             <td><strong>{name.replaceAll('_', ' ')}</strong>{name === metrics.active_configuration && <span className="report-active-tag">ACTIVE</span>}</td><td>{m.windows ?? '—'}</td>{COMPARISON_METRICS.map(key => <td key={key}>{formatMetric(m[key])}</td>)}<td>{m.alert_count ?? 'Unavailable'}</td>
           </tr>)}</tbody></table>
         </div><p>PR-AP is average precision. Undefined or unsupported metrics remain unavailable. Full report metadata includes confusion matrices and workload.</p>
@@ -63,7 +65,7 @@ export default function Reports() {
       </div></div>
       <div className="card"><div className="card-h"><span className="card-t">Reports and exports</span></div><div className="card-b">
         <p role="status">{message}</p>
-        <p>This experiment is frozen. Replay performs inference only. A new training study requires a new untouched evaluation set.</p>
+        <p>The selected checkpoint is frozen. Historical dashboard and replay outputs are rescored observations, not a new evaluation. An independent collection is still required to establish detection quality.</p>
         {metrics.limitations?.map(item => <p key={item}>{item}</p>)}
       </div></div>
     </>}

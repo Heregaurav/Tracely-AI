@@ -2,7 +2,7 @@
 
 SPEDIA v2 behavioral anomaly review with a React/Vite dashboard, FastAPI backend, PostgreSQL, and frozen scikit-learn inference. This branch contains the SPEDIA implementation only. CERT/LANL pipelines, historical synthetic-demo code, raw datasets, model binaries, local credentials, runtime state and unrelated experiment reports are excluded.
 
-The approved model remains `spedia-dcd995bcea1644cabd261b4bcc4dd223`. Its historical result is 86% precision and 46.49% recall on 421 retained test user-hours. Those controlled mixed-origin results do not establish enterprise detection accuracy; source-generation markers correlate perfectly with native event labels. Separate SPEDIA development experiments are not activated automatically.
+The owner-selected main output is **SPEDIA V6 Maximum** (`spedia-v6-maximum-20261102`): **95.71% precision, 87.01% recall, 91.16% F1 and 1.18% false-positive rate** on **332 reused development-validation hours**. This is not independent test performance; source-origin confounding remains. The frozen V2 model and its historical test results remain preserved for rollback. See [main model and risk distribution](docs/V6_MAIN_MODEL.md).
 
 ## Existing configured installation
 
@@ -27,7 +27,7 @@ The backend reads environment variables, not a config.yaml file. `/health/live` 
 
 ## Implemented workflows
 
-- Thirty causal observed-user-hour features from native SPEDIA activity.
+- Versioned 55-feature V6 Maximum serving, with the original 30-feature model preserved.
 - Frozen IF/neural/host-novelty scoring, versioned PostgreSQL scores, and persistent analyst investigations.
 - Historical replay: batch scoring with separate annotations, not a live telemetry collector.
 - Constrained native CSV imports with verified prior context and separate persisted predictions.
