@@ -9,12 +9,14 @@ import Heatmap     from './pages/Heatmap'
 import Timeline    from './pages/Timeline'
 import Departments from './pages/Departments'
 import Reports     from './pages/Reports'
+import HourlyMonitor from './pages/HourlyMonitor'
 import ReplayDetection from './pages/ReplayDetection'
 import NewDataInference from './pages/NewDataInference'
 const GraphView = lazy(() => import('./pages/GraphView'))
 
 const PAGES = {
   landing:     { label:'Welcome',       Component:Landing,     Icon:LayoutDashboard },
+  hourly:      { label:'Hourly Monitor', Component:HourlyMonitor, Icon:Radar },
   overview:    { label:'Overview',      Component:Overview,    Icon:LayoutDashboard },
   threats:     { label:'Threats',       Component:Threats,     Icon:AlertTriangle   },
   users:       { label:'Users',         Component:UsersList,   Icon:Users           },
@@ -28,7 +30,7 @@ const PAGES = {
 }
 
 const NAV_GROUPS = [
-  { label:'MONITOR',   ids:['overview','threats','users','replay','inference'] },
+  { label:'MONITOR',   ids:['overview','hourly','threats','users','replay','inference'] },
   { label:'ANALYTICS', ids:['timeline'] },
   { label:'SYSTEM',    ids:['reports'] },
 ]
@@ -59,7 +61,8 @@ export default function App() {
     return params.get('page') || 'landing'
   })
   const [pageParams, setPageParams] = useState(() => {
-    return window.history.state?.params || {}
+    const query = new URLSearchParams(window.location.search)
+    return { ...Object.fromEntries(['hour', 'userId'].filter(key => query.has(key)).map(key => [key, query.get(key)])), ...(window.history.state?.params || {}) }
   })
   // Desktop: collapsed = sidebar hidden. Mobile: collapsed = drawer closed.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -96,7 +99,9 @@ export default function App() {
     setPageParams(params || {})
     if (isMobile) setSidebarCollapsed(true)
     try{
-      const url = pageId === 'landing' ? '/' : `?page=${pageId}`
+      const query = new URLSearchParams({ page: pageId })
+      for (const key of ['hour', 'userId']) if (params?.[key] != null) query.set(key, String(params[key]))
+      const url = pageId === 'landing' ? '/' : `?${query}`
       window.history.pushState({ page: pageId, params: params || {} }, '', url)
     }catch{/* ignore in weird envs */}
   }
@@ -109,7 +114,8 @@ export default function App() {
       const st = e.state || {}
       const p = st.page || new URLSearchParams(window.location.search).get('page') || 'landing'
       setPage(p)
-      setPageParams(st.params || {})
+      const query = new URLSearchParams(window.location.search)
+      setPageParams(st.params || Object.fromEntries(['hour', 'userId'].filter(key => query.has(key)).map(key => [key, query.get(key)])))
     }
     window.addEventListener('popstate', onPop)
 
@@ -199,7 +205,7 @@ export default function App() {
       </aside>
 
       {/* ── Main ── */}
-      <div className="main" style={{ marginLeft: mainMargin }}>
+      <div className={`main${page === 'hourly' ? ' hourly-main' : ''}`} style={{ marginLeft: mainMargin }}>
         <header className="topbar">
           <div className="topbar-l">
             <button
@@ -214,12 +220,12 @@ export default function App() {
             <span className="pg-title">{PAGES[page]?.label}</span>
           </div>
           <div className="topbar-r">
-            <div className={`tpill ${level}`}>
+            <div className={`tpill ${level}`} title="Historical summary across the dataset; the Hourly Monitor has its own selected-hour results">
               <div
                 className="tpill-dot"
                 style={{ animation: ['CRITICAL','HIGH'].includes(level) ? 'glow 1s infinite' : 'none' }}
               />
-              {level}
+              {page === 'hourly' ? <><span className="hourly-historical-long">Historical: {level}</span><span className="hourly-historical-short">HIST. {level === 'CRITICAL' ? 'CRIT' : level}</span></> : level}
             </div>
             <button
               className={`theme-toggle${isLight ? ' light' : ''}`}
@@ -241,7 +247,7 @@ export default function App() {
           </div>
         </header>
 
-        <Suspense fallback={<div className="page">Loading view…</div>}><Component onNavigate={navigate} userId={pageParams.userId} onBack={() => navigate('users')} /></Suspense>
+        <Suspense fallback={<div className="page">Loading view…</div>}><Component key={`${page}:${pageParams.hour ?? ''}:${pageParams.userId ?? ''}`} onNavigate={navigate} hour={pageParams.hour} userId={pageParams.userId} onBack={() => navigate('users')} /></Suspense>
       </div>
     </div>
   )

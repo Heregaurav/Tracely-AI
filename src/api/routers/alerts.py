@@ -20,6 +20,7 @@ from src.api.dependencies import (
 )
 from src.api.routers.overview import _alert_json, _bounded, _pagination
 from src.api.schemas import AlertStatusRequest
+from src.api.routers.hours import requested_hour
 
 router = APIRouter(prefix="/api", tags=["alerts"])
 
@@ -41,6 +42,9 @@ async def list_threats(
         .join(DailyScore, Alert.score_id == DailyScore.id)
         .where(DailyScore.model_version == model.id)
     )
+    hour = requested_hour(request)
+    if hour is not None:
+        query = query.where(DailyScore.relative_day == hour)
 
     for arg, column in (
         ("tier", Alert.severity),
@@ -68,6 +72,7 @@ async def list_threats(
         "total": total,
         "page": page,
         "limit": limit,
+        "window_index": hour,
     }
 
 

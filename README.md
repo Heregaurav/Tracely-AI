@@ -51,3 +51,7 @@ Real-artifact tests skip when private datasets/checkpoints are unavailable. Post
 Raw CSVs, features, model weights, replay/context files and stored database assets are private/external prerequisites, not Git contents. Restore reviewed assets through your established PostgreSQL asset store or trusted filesystem provisioning process. `scripts/sync_neon_assets.py` performs explicit uploads or local materialization; uploads modify database state and are never run automatically by a Git push.
 
 No password, private endpoint, session secret or model weight is included in this branch. The local working checkout may contain other experiments; they are not part of this published source tree.
+
+## Hour-by-hour review
+
+The existing application includes an additive [Hourly Monitor](docs/HOURLY_MONITOR.md). Select a stored hour for its account scores, tier breakdown and matching alerts. Other screens and the active V6 model remain unchanged.

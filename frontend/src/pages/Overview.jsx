@@ -35,7 +35,7 @@ export default function Overview({ onNavigate }) {
         <strong>{metrics?.display_name || stats?.model_name || 'Active SPEDIA model'}</strong>
         {primary && <p>Precision {(100 * primary.precision).toFixed(2)}% · Recall {(100 * primary.recall).toFixed(2)}% · F1 {(100 * primary.f1).toFixed(2)}% · False-positive rate {(100 * primary.false_positive_rate).toFixed(2)}%</p>}
         <p>{metrics?.primary_evaluation === 'validation' ? 'Reused development validation; not independent test performance. Source-origin confounding remains.' : 'Historical research evaluation; scores are not probabilities.'}</p>
-        <button className="btn btn-sm" onClick={() => onNavigate('reports')}>View main model report →</button>
+        <button className="btn btn-sm" onClick={() => onNavigate('reports')}>View main model report →</button> <button className="btn btn-sm" onClick={() => onNavigate('hourly')}>Open Hourly Monitor →</button>
       </div></section>
       <div className="stats-row">
         {cards.map(({label,val,color,sub,trend})=>(

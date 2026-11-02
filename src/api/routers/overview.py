@@ -490,6 +490,10 @@ async def export(
     kind = request.query_params.get("kind", "scores")
 
     scores_q = select(DailyScore).where(DailyScore.model_version == model.id)
+    from src.api.routers.hours import requested_hour
+    hour = requested_hour(request)
+    if hour is not None:
+        scores_q = scores_q.where(DailyScore.relative_day == hour)
 
     if kind == "scores":
         data = [
@@ -501,12 +505,16 @@ async def export(
             )
         ]
     elif kind == "alerts":
+        alerts_q = select(Alert, DailyScore).join(Alert, Alert.score_id == DailyScore.id).where(DailyScore.model_version == model.id)
+        if hour is not None:
+            alerts_q = alerts_q.where(DailyScore.relative_day == hour)
+        for key, column in (("tier", Alert.severity), ("status", Alert.status), ("user_id", DailyScore.user)):
+            if request.query_params.get(key):
+                alerts_q = alerts_q.where(column == request.query_params[key])
         data = [
             _alert_json(a, s)
             for a, s in db.execute(
-                select(Alert, DailyScore)
-                .join(DailyScore, Alert.score_id == DailyScore.id)
-                .where(DailyScore.model_version == model.id)
+                alerts_q
                 .order_by(DailyScore.risk_score.desc(), Alert.id)
                 .limit(limit)
             )
@@ -526,4 +534,4 @@ async def export(
         )
     )
     db.commit()
-    return {"records": data, "model_version": model.id, "limit": limit, "truncated": True}
+    return {"records": data, "model_version": model.id, "limit": limit, "truncated": True, "window_index": hour}

@@ -14,6 +14,7 @@ from src.api.dependencies import Settings, get_settings, _get_factory
 from src.api.limits import RequestBodyLimit
 from src.api.routers.alerts import router as alerts_router
 from src.api.routers.health import router as health_router
+from src.api.routers.hours import router as hours_router
 from src.api.routers.inference import router as inference_router
 from src.api.routers.models import router as models_router
 from src.api.routers.overview import router as overview_router
@@ -102,6 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     app.include_router(health_router)
+    app.include_router(hours_router)
     app.include_router(overview_router)
     app.include_router(users_router)
     app.include_router(alerts_router)

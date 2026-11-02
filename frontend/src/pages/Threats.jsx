@@ -84,7 +84,7 @@ function AlertEvidence({ explanation = {} }) {
     pca: 'PCA comparison',
     supervised: 'Supervised model',
   }
-  const componentIndices = explanation.component_indices || {}
+  const componentIndices = Object.fromEntries(Object.entries(explanation.component_indices || {}).map(([key, value]) => [key.replace(/_score$/, ''), value]))
   const activeSignals = ['if', 'neural', 'graph'].filter(key => componentIndices[key] != null)
   const comparisonSignals = Object.entries(componentIndices).filter(([key]) => !activeSignals.includes(key))
   const shortId = id => id.length > 18 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id
@@ -183,9 +183,9 @@ function AlertModal({ alert, onClose, busyId, onStatusChange }) {
   )
 }
 
-export default function Threats() {
+export default function Threats({ hour, userId, onNavigate }) {
   const [tier,  setTier]  = useState('ALL')
-  const [search,setSearch]= useState('')
+  const [search,setSearch]= useState(userId || '')
   const [sel,   setSel]   = useState(null)
   const [sc,    setSC]    = useState('risk_score')
   const [asc,   setAsc]   = useState(false)
@@ -195,7 +195,7 @@ export default function Threats() {
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, loading, error, refetch } = useApi(
-    `/api/threats?limit=50&page=${page}&sort=${sc === 'relative_day' ? 'time' : 'risk'}${tier === 'ALL' ? '' : `&tier=${tier}`}${statusFilter ? `&status=${statusFilter}` : ''}${search ? `&user_id=${encodeURIComponent(search)}` : ''}`,
+    `/api/threats?limit=50&page=${page}${hour == null ? '' : `&hour=${encodeURIComponent(hour)}`}&sort=${sc === 'relative_day' ? 'time' : 'risk'}${tier === 'ALL' ? '' : `&tier=${tier}`}${statusFilter ? `&status=${statusFilter}` : ''}${search ? `&user_id=${encodeURIComponent(search)}` : ''}`,
     [tier]
   )
 
@@ -224,7 +224,7 @@ export default function Threats() {
 
   const exportCSV = async () => {
     let rows
-    try { rows = (await apiFetch('/api/export?kind=alerts&limit=500')).records } catch (err) { setMessage(err.message); return }
+    try { rows = (await apiFetch(`/api/export?kind=alerts&limit=500${hour == null ? '' : `&hour=${encodeURIComponent(hour)}`}${tier === 'ALL' ? '' : `&tier=${tier}`}${statusFilter ? `&status=${statusFilter}` : ''}${search ? `&user_id=${encodeURIComponent(search)}` : ''}`)).records } catch (err) { setMessage(err.message); return }
     const cols = ['alert_id','user_id','department','risk_tier','risk_score','alert_type','status','timestamp']
     const csv  = [cols.join(','), ...rows.map(a=>cols.map(c => { let v = String(a[c] ?? ''); if (/^[=+@-]/.test(v)) v = "'" + v; return '"' + v.replaceAll('"', '""') + '"' }).join(','))].join('\n')
     const url  = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
@@ -252,13 +252,14 @@ export default function Threats() {
 
   return (
     <div className="page">
+      {hour != null && <div className="callout hourly-alert-scope"><span>Only alerts from the selected closed hour are shown. Scores and statuses belong to that hour.</span><button className="btn btn-sm" onClick={() => onNavigate?.('hourly', { hour })}>Back to selected hour</button><button className="btn btn-sm" onClick={() => onNavigate?.('threats')}>All historical alerts</button></div>}
       {(error || message) && <p role="alert">{error || message}</p>}
       {sel && <AlertModal alert={sel} onClose={() => setSel(null)} busyId={busyId} onStatusChange={updateStatus} />}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
         <div className="sec">
-          <div className="sec-t">Active Threats</div>
-          <div className="sec-s">{alerts.length} alerts{tier!=='ALL'?` · filtered: ${tier}`:''}</div>
+          <div className="sec-t">{hour == null ? 'Active Threats' : 'Hourly Alerts'}</div>
+          <div className="sec-s">{data?.total ?? 0} alerts{hour != null ? ` · observed hour ${hour}` : ''}{tier!=='ALL'?` · filtered: ${tier}`:''}</div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <input className="search" placeholder="Exact anonymized user…"
@@ -291,7 +292,7 @@ export default function Threats() {
                 {sortHeader("risk_tier", "TIER")}
                 {sortHeader("risk_score", "SCORE")}
                 <th>TYPE</th>
-                {sortHeader("relative_day", "RELATIVE DAY")}
+                {sortHeader("relative_day", "OBSERVED HOUR")}
                 <th>STATUS</th>
                 <th>ACTIONS</th>
               </tr>
@@ -316,7 +317,7 @@ export default function Threats() {
                     </div>
                   </td>
                   <td><span style={{fontSize:11,color:'var(--t3)'}}>{a.alert_type?.replace(/_/g,' ')}</span></td>
-                  <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--t3)'}}>{a.timestamp || `Day ${a.relative_day}`}</span></td>
+                  <td><span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'var(--t3)'}}>{a.timestamp || `Hour ${a.relative_day}`}</span></td>
                   <td><StatusBadge status={a.status} /></td>
                   <td>
                     <StatusActions alert={a} busyId={busyId} onChange={updateStatus} compact />
