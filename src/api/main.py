@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.api.dependencies import Settings, get_settings, _get_factory
+from src.api.limits import RequestBodyLimit
 from src.api.routers.alerts import router as alerts_router
 from src.api.routers.health import router as health_router
 from src.api.routers.inference import router as inference_router
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.add_middleware(RequestBodyLimit, max_bytes=settings.max_upload_bytes)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_url],

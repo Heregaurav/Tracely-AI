@@ -1,4 +1,5 @@
 """Verify public production access without a real database or credentials."""
+from fastapi import File, UploadFile
 from fastapi.testclient import TestClient
 
 from src.api import main
@@ -38,7 +39,8 @@ def test_production_starts_without_auth_configuration(monkeypatch):
         assert client.get("/health/live").status_code == 200
         assert client.get("/api/model-versions").json() == {"versions": []}
         assert not client.cookies
-    assert not any(route.path.startswith("/api/auth/") for route in app.routes)
+        assert client.get("/api/auth/options").status_code == 404
+        assert client.get("/api/auth/session").status_code == 404
     assert get_actor() == "public"
 
 
@@ -57,3 +59,23 @@ def test_public_reads_keep_model_availability_validation(monkeypatch):
         response = client.get("/api/stats")
         assert response.status_code == 503
         assert "No active model" in response.json()["error"]
+
+
+def test_multipart_parser_preserves_upload_and_rejects_oversize(monkeypatch):
+    app = public_app(monkeypatch)
+
+    @app.post("/api/upload-check")
+    async def upload_check(file: UploadFile = File(...)):
+        content = await file.read()
+        return {"bytes": len(content), "filename": file.filename}
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/upload-check", files={"file": ("events.csv", b"a,b\n1,2\n", "text/csv")}
+        )
+        assert response.status_code == 200
+        assert response.json() == {"bytes": 8, "filename": "events.csv"}
+        response = client.post(
+            "/api/upload-check", files={"file": ("large.csv", b"x" * (321 * 1024), "text/csv")}
+        )
+        assert response.status_code == 413

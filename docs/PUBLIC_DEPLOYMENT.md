@@ -55,3 +55,5 @@ npm run build
 After deployment, `/health/live` should return 200. Public dashboard requests
 should return their data or a specific data/storage validation error, without
 requiring a login. This code change does not push or deploy itself.
+
+Security audit results and remaining public-access risks: [security review](SECURITY_REVIEW.md).

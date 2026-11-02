@@ -60,7 +60,7 @@ def inspect_spedia(path,output="data/spedia/analysis",docs_path="docs/DATASET_AN
     started=time.perf_counter(); path=Path(path); output=Path(output);output.mkdir(parents=True,exist_ok=True)
     frame=load_spedia(path)
     source_columns=list(pd.read_csv(path,nrows=0).columns)
-    digest=hashlib.md5(path.read_bytes()).hexdigest()
+    digest=hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
     raw=frame[source_columns]
     quality={"dataset_id":"spedia-v2","source_url":OFFICIAL_URL,"source_path":str(path.resolve()),
        "sha256":sha256_file(path),"md5":digest,"official_md5_match":digest==OFFICIAL_MD5,
@@ -222,7 +222,7 @@ def build_spedia(path,output,*,strategy="temporal",common=False,seed=42):
         for name,g in table.groupby("split")}
     if set(split_manifest)!={"train","validation","test"}:raise ValueError("Split purging left an empty period; no model may be trained")
     atomic_json(output/"split_manifest.json",{"policy":audit,"splits":split_manifest,"feature_duplicate_windows_purged":purged})
-    md5=hashlib.md5(Path(path).read_bytes()).hexdigest()
+    md5=hashlib.md5(Path(path).read_bytes(), usedforsecurity=False).hexdigest()
     provenance={"source_url":OFFICIAL_URL,"filename":Path(path).name,"sha256":sha256_file(path),"md5":md5,
                 "official_md5_match":md5==OFFICIAL_MD5,"registered_at":utcnow(),"authenticity":"publisher-MD5-verified" if md5==OFFICIAL_MD5 else "unverified-source-or-unit-fixture",
                 "dataset_version":"SPEDIA-v2","source_origins":"mixed participant exercise, simulation, and CERT-derived records; incomplete row-origin provenance",
