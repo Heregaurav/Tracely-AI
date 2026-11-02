@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { useApi, apiFetch } from '../hooks/useApi'
-import { useAuth } from '../hooks/authContext'
 import { Loading, Badge } from '../components/shared'
 
 const COMPARISON_METRICS = ['pr_auc_average_precision', 'roc_auc', 'precision', 'recall', 'f1']
@@ -9,13 +8,12 @@ const COMPARISON_METRICS = ['pr_auc_average_precision', 'roc_auc', 'precision', 
 export default function Reports() {
   const { data: metrics, loading, error, refetch } = useApi('/api/model-metrics')
   const { data: source } = useApi('/api/data-sources')
-  const identity = useAuth()
   const [message, setMessage] = useState('')
   const exportReport = async () => {
     try {
       const result = await apiFetch('/api/export?limit=500')
       const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }))
-      const link = Object.assign(document.createElement('a'), { href: url, download: 'tracely-authorized-scores.json' })
+      const link = Object.assign(document.createElement('a'), { href: url, download: 'tracely-scores.json' })
       link.click(); URL.revokeObjectURL(url)
     } catch (err) { setMessage(err.message) }
   }
@@ -23,7 +21,7 @@ export default function Reports() {
   const selected = metrics?.held_out_metrics?.[metrics.active_configuration]
   const formatMetric = value => value == null ? 'Unavailable' : `${(value * 100).toFixed(1)}%`
   return <div className="page report-page">
-    <header className="report-heading"><div><div className="report-kicker">MODEL GOVERNANCE / SPEDIA V2</div><h1>Model report</h1><p>Frozen evaluation, active configuration, and source provenance.</p></div><div className="report-actions"><button className="btn" onClick={refetch}><RefreshCw size={14}/>Refresh report</button>{identity?.role !== 'VIEWER' && <button className="btn btn-primary" onClick={exportReport}><Download size={14}/>Export authorized scores</button>}</div></header>
+    <header className="report-heading"><div><div className="report-kicker">MODEL GOVERNANCE / SPEDIA V2</div><h1>Model report</h1><p>Frozen evaluation, active configuration, and source provenance.</p></div><div className="report-actions"><button className="btn" onClick={refetch}><RefreshCw size={14}/>Refresh report</button><button className="btn btn-primary" onClick={exportReport}><Download size={14}/>Export scores</button></div></header>
     {(error || message) && <div role="alert" className="callout">{error || message}</div>}
     {loading ? <Loading /> : metrics && <>
       {metrics.is_fixture && <div role="alert" className="callout report-fixture-warning"><strong>UNIT TEST FIXTURE ONLY.</strong> These metrics are not real-world evaluation results.</div>}

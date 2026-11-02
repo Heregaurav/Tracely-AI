@@ -1,6 +1,6 @@
 # Tracely AI SPEDIA frontend
 
-React/Vite analyst dashboard for the authenticated FastAPI SPEDIA API. SessionGate manages login; apiFetch sends credentialed requests and CSRF headers; pages consume persisted source-backed results.
+React/Vite analyst dashboard for the public FastAPI SPEDIA API. App mounts directly without login; apiFetch sends requests without authentication cookies or CSRF headers. Pages consume persisted source-backed results.
 
 ```bash
 npm ci

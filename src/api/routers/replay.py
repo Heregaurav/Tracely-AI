@@ -21,10 +21,9 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import (
     Settings,
     _get_factory,
-    check_csrf,
     get_db,
     get_settings,
-    require_role,
+    get_actor,
 )
 from src.api.schemas import ReplayDetectRequest
 from src.data.integrity import sha256_file
@@ -86,7 +85,7 @@ async def replay_info(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     mode = request.query_params.get("mode", "analysis")
     try:
@@ -122,8 +121,7 @@ async def replay_info(
 async def detect(
     body: ReplayDetectRequest,
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
     try:
         result = execute_replay(
@@ -149,7 +147,7 @@ async def replay_run(
     run_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     row = db.get(ReplayRun, run_id)
     if row is None or row.dataset_id != settings.dataset_id:
@@ -193,7 +191,7 @@ async def replay_events(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     row = db.get(ReplayRun, run_id)
     if row is None or row.dataset_id != settings.dataset_id:
@@ -250,7 +248,7 @@ async def ground_truth(
     run_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     row = db.get(ReplayRun, run_id)
     if row is None or row.dataset_id != settings.dataset_id:

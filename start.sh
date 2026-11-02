@@ -4,7 +4,6 @@ set -euo pipefail
 cd "$(dirname "$0")"
 PYTHON="${PYTHON:-.venv/bin/python}"
 : "${DATABASE_URL:?Set DATABASE_URL; see docs/DEPLOYMENT.md}"
-: "${SESSION_SECRET:?Set a random SESSION_SECRET; see .env.example}"
 pids=()
 cleanup() {
   if ((${#pids[@]})); then kill "${pids[@]}" 2>/dev/null || true; fi

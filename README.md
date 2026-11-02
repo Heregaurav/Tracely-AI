@@ -23,7 +23,7 @@ Install Python dependencies into a virtual environment and install frontend depe
 npm --prefix frontend run dev
 ```
 
-The backend reads environment variables, not a config.yaml file. `/health/live` checks the process and `/health/ready` checks serving prerequisites. `/docs` is available in development. Production requires the configured organization OIDC flow and durable trusted artifacts.
+The backend reads environment variables, not a config.yaml file. `/health/live` checks the process and `/health/ready` checks serving prerequisites. `/docs` is available in development. Production requires durable trusted artifacts. Authentication has been removed; the dashboard opens directly and enabled API actions are public. See [deployment instructions](docs/PUBLIC_DEPLOYMENT.md).
 
 ## Implemented workflows
 
@@ -31,7 +31,7 @@ The backend reads environment variables, not a config.yaml file. `/health/live` 
 - Frozen IF/neural/host-novelty scoring, versioned PostgreSQL scores, and persistent analyst investigations.
 - Historical replay: batch scoring with separate annotations, not a live telemetry collector.
 - Constrained native CSV imports with verified prior context and separate persisted predictions.
-- Role-based API authorization, signed sessions, CSRF checks and digest-verified trusted model loading.
+- Public API access, audit entries attributed to `public`, and digest-verified trusted model loading.
 - Explicit offline SPEDIA feature/training/review scripts. No runtime retraining or automated model replacement.
 
 `src/data/spedia.py` owns the data contract; `src/models/behavioral.py` owns model scoring; `src/inference/` handles new imports; `src/db/` owns publication, replay and persistence; `src/api/` serves FastAPI; `frontend/src/` provides the analyst UI. `migrations/` holds Alembic revisions. Docker/Compose and an API-only Render reference configuration are included; this source push does not deploy them.

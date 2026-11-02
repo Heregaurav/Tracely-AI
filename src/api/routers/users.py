@@ -19,7 +19,7 @@ from src.api.dependencies import (
     get_active_model,
     get_db,
     get_settings,
-    require_role,
+    get_actor,
 )
 from src.api.routers.overview import (
     _alert_json,
@@ -46,7 +46,7 @@ async def list_users(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     """Paginated, sortable list of users with risk rollup over last 30 data days."""
     page, limit = _pagination(request, 100)
@@ -107,7 +107,7 @@ async def user_dossier(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     """Full behavioral dossier for a single user including daily history and alerts."""
     table = _rollups(model, db)

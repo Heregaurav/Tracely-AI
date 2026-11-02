@@ -16,8 +16,7 @@ from src.api.dependencies import (
     get_active_model,
     get_db,
     get_settings,
-    require_role,
-    check_csrf,
+    get_actor,
 )
 from src.api.routers.overview import _alert_json, _bounded, _pagination
 from src.api.schemas import AlertStatusRequest
@@ -33,7 +32,7 @@ async def list_threats(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     """Paginated, filterable list of analyst-visible alerts."""
     page, limit = _pagination(request)
@@ -80,8 +79,7 @@ async def update_threat_status(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
     """Optimistic-concurrency alert status update with full audit trail."""
     row = db.execute(

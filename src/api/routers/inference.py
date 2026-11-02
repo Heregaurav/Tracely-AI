@@ -16,10 +16,9 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import (
     Settings,
     _get_factory,
-    check_csrf,
     get_db,
     get_settings,
-    require_role,
+    get_actor,
 )
 from src.api.schemas import InferenceAlertStatusRequest
 from src.db.models import AuditLog, InferenceAlert, InferenceRun
@@ -48,7 +47,7 @@ def _inference_directory(settings: Settings) -> str:
 async def inference_context(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     try:
         result = context_info(
@@ -87,8 +86,7 @@ async def upload_inference(
     provenance: str = Form(...),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
     """Accept and score a compatible SPEDIA-format CSV upload.
 
@@ -136,7 +134,7 @@ async def upload_inference(
 async def list_runs(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     rows = db.scalars(
         select(InferenceRun)
@@ -168,7 +166,7 @@ async def get_run(
     run_id: str,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     row = db.get(InferenceRun, run_id)
     if row is None or row.dataset_id != settings.dataset_id:
@@ -216,8 +214,7 @@ async def update_inference_alert_status(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ANALYST")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
     alert = db.scalar(
         select(InferenceAlert)

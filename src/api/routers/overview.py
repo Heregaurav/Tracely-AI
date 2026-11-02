@@ -29,7 +29,7 @@ from src.api.dependencies import (
     get_active_model,
     get_db,
     get_settings,
-    require_role,
+    get_actor,
 )
 
 router = APIRouter(prefix="/api", tags=["overview"])
@@ -171,7 +171,7 @@ async def stats(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("VIEWER")),
+    actor: str = Depends(get_actor),
 ):
     users = _rollups(model, db)
     total = db.scalar(select(func.count()).select_from(users))
@@ -241,7 +241,7 @@ async def timeline(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("VIEWER")),
+    actor: str = Depends(get_actor),
 ):
     days = _bounded(request, "days", 60, 365)
     wpd = _windows_per_day(model)
@@ -267,12 +267,6 @@ async def timeline(
 
     user_id = request.query_params.get("user_id")
     if user_id:
-        role = request.session.get("role", "")
-        if role == "VIEWER":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Analyst role required for user-level history",
-            )
         query = query.where(DailyScore.user == user_id)
 
     rows = [
@@ -309,7 +303,7 @@ async def graph(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     user = request.query_params.get("user_id", "").strip()
     if not user:
@@ -406,7 +400,7 @@ async def graph(
 @router.get("/departments")
 @router.get("/heatmap")
 async def unavailable_metadata(
-    actor: str = Depends(require_role("VIEWER")),
+    actor: str = Depends(get_actor),
 ):
     return {
         "departments": [],
@@ -424,7 +418,7 @@ async def model_metrics(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("VIEWER")),
+    actor: str = Depends(get_actor),
 ):
     keys = (
         "version", "created_at", "is_fixture", "evaluation_scope",
@@ -448,15 +442,10 @@ async def data_sources(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("VIEWER")),
+    actor: str = Depends(get_actor),
 ):
     dataset = db.get(Dataset, model.dataset_id)
-    role = request.session.get("role", "")
-    labels = {
-        k: v
-        for k, v in model.report["dataset"].get("labels", {}).items()
-        if k != "unmatched_records" or role != "VIEWER"
-    }
+    labels = model.report["dataset"].get("labels", {})
     return {
         "dataset_id": dataset.id,
         "is_fixture": dataset.is_fixture,
@@ -482,7 +471,7 @@ async def export(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     model: ModelVersion = Depends(get_active_model),
-    actor: str = Depends(require_role("ANALYST")),
+    actor: str = Depends(get_actor),
 ):
     limit = _bounded(request, "limit", 100, 500)
     kind = request.query_params.get("kind", "scores")

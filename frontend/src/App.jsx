@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { LayoutDashboard, Menu, AlertTriangle, Users, BarChart2, TrendingUp, Building2, FileText, RefreshCw, MoonStar, SunMedium, Radar } from 'lucide-react'
 import { usePolling } from './hooks/useApi'
-import { useAuth } from './hooks/authContext'
 import Landing     from './pages/Landing'
 import Overview    from './pages/Overview'
 import Threats     from './pages/Threats'
@@ -55,7 +54,6 @@ function useIsMobile() {
 }
 
 export default function App() {
-  const identity = useAuth()
   const [page, setPage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('page') || 'landing'
@@ -89,7 +87,7 @@ export default function App() {
 
   const level = threatLevel(stats)
   const badge = (stats?.tier_distribution?.CRITICAL||0) + (stats?.tier_distribution?.HIGH||0)
-  const permittedPage = identity?.role === 'VIEWER' && ['threats', 'users', 'graph', 'replay', 'inference'].includes(page) ? 'overview' : page
+  const permittedPage = page
   const { Component } = PAGES[permittedPage] || PAGES.overview
   const isLight = theme === 'light'
 
@@ -167,7 +165,7 @@ export default function App() {
           {NAV_GROUPS.map(({ label, ids }) => (
             <div key={label}>
               <div className="sb-group">{label}</div>
-              {ids.filter(id => identity?.role !== 'VIEWER' || !['threats', 'users', 'graph', 'replay', 'inference'].includes(id)).map(id => {
+              {ids.map(id => {
                 const { label:lbl, Icon } = PAGES[id]
                 return (
                   <button

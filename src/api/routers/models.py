@@ -18,10 +18,9 @@ from src.data.neon_assets import resolve_asset_path
 from src.db.models import AuditLog, ModelVersion
 from src.api.dependencies import (
     Settings,
-    check_csrf,
     get_db,
     get_settings,
-    require_role,
+    get_actor,
 )
 from src.api.routers.overview import _bounded, _pagination
 
@@ -33,9 +32,9 @@ async def list_model_versions(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ADMIN")),
+    actor: str = Depends(get_actor),
 ):
-    """List all model versions for the active dataset (ADMIN only)."""
+    """List all model versions for the active dataset."""
     page, limit = _pagination(request)
     rows = db.scalars(
         select(ModelVersion)
@@ -62,10 +61,9 @@ async def activate_model(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    actor: str = Depends(require_role("ADMIN")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
-    """Activate a specific model version (ADMIN only).
+    """Activate a specific model version.
 
     Validates:
     - Version exists and belongs to the active dataset.
@@ -123,8 +121,7 @@ async def activate_model(
 
 @router.post("/retrain")
 async def retrain(
-    actor: str = Depends(require_role("ADMIN")),
-    _csrf: None = Depends(check_csrf),
+    actor: str = Depends(get_actor),
 ):
     """Always returns 409 — the approved SPEDIA model is frozen.
 

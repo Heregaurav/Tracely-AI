@@ -1,20 +1,4 @@
-"""FastAPI application factory.
-
-Replaces src/api/service.py (Flask).
-
-The external API surface — routes, request parameters, response shapes, status
-codes, session cookies, and CSRF semantics — is identical to the previous Flask
-implementation so that the React frontend requires no changes.
-
-Key differences from Flask:
-- SessionMiddleware (Starlette) replaces Flask's signed-cookie sessions.
-  Sessions are signed with the same SESSION_SECRET; users need to log in once
-  after the migration because the cookie serialisation format changed.
-- FastAPI dependency injection replaces Flask's g, closures, and decorators.
-- Pydantic models validate all request bodies and document the OpenAPI schema.
-- /docs and /redoc expose the interactive API documentation (restricted in
-  production — set DOCS_ENABLED=1 to override).
-"""
+"""FastAPI application factory for the public SPEDIA dashboard."""
 from __future__ import annotations
 
 import logging
@@ -25,11 +9,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
-from starlette.middleware.sessions import SessionMiddleware
 
 from src.api.dependencies import Settings, get_settings, _get_factory
-from src.api.routers import auth as auth_module
-from src.api.routers.auth import register_oidc
 from src.api.routers.alerts import router as alerts_router
 from src.api.routers.health import router as health_router
 from src.api.routers.inference import router as inference_router
@@ -40,15 +21,6 @@ from src.api.routers.users import router as users_router
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Security middleware: enforce auth + CSRF on all /api/* paths
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Application factory
-# ---------------------------------------------------------------------------
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
@@ -95,48 +67,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Middleware is applied in reverse registration order:
-    # add_middleware last = outermost wrapper = first to execute.
-    # We want:  CORS (outermost) → SessionMiddleware → auth_guard → route
-
-    # 1. auth_guard is innermost — added first so it runs after session is populated.
-    @app.middleware("http")
-    async def auth_guard(request: Request, call_next):
-        path = request.url.path
-        method = request.method
-        skip = (
-            method == "OPTIONS"
-            or path in ("/health/live", "/health/ready", "/health")
-            or path.startswith("/api/auth/")
-            or path.startswith("/docs")
-            or path.startswith("/redoc")
-            or path.startswith("/openapi")
-            or not path.startswith("/api/")
-        )
-        if not skip and not request.session.get("actor"):
-            return JSONResponse(
-                {"error": "Authentication required", "status": "error"},
-                status_code=401,
-            )
-        return await call_next(request)
-
-    # 2. SessionMiddleware — wraps auth_guard so session is ready when auth runs.
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=settings.session_secret,
-        session_cookie="session",
-        same_site="lax",
-        https_only=settings.app_env != "development",
-        max_age=30 * 60,  # 30 minutes
-    )
-
-    # 3. CORS — outermost so preflight OPTIONS passes before session check.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_url],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
-        allow_headers=["Content-Type", "X-CSRF-Token"],
+        allow_headers=["Content-Type"],
     )
 
     # -- Exception handlers --
@@ -164,25 +100,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     app.include_router(health_router)
-    app.include_router(auth_module.router)
     app.include_router(overview_router)
     app.include_router(users_router)
     app.include_router(alerts_router)
     app.include_router(models_router)
     app.include_router(replay_router)
     app.include_router(inference_router)
-
-    # -- Optional OIDC routes --
-    register_oidc(app, settings)
-
-    if settings.app_env == "development":
-        logger.warning(
-            "Development mode: local username/password login is enabled. "
-            "API documentation is available at /docs."
-        )
-    elif not settings.oidc_issuer:
-        raise ValueError(
-            "Production requires organization-backed OIDC configuration"
-        )
 
     return app

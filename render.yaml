@@ -1,4 +1,4 @@
-# API-only reference blueprint. Provision identity and durable artifact storage
+# Public API reference blueprint. Provision durable artifact storage
 # before deployment; recorded artifact paths must match durable storage.
 services:
   - type: web
@@ -16,18 +16,6 @@ services:
       - key: BIND
         value: 0.0.0.0:10000
       - key: DATABASE_URL
-        sync: false
-      - key: SESSION_SECRET
-        sync: false
-      - key: OIDC_ISSUER
-        sync: false
-      - key: OIDC_CLIENT_ID
-        sync: false
-      - key: OIDC_CLIENT_SECRET
-        sync: false
-      - key: OIDC_REDIRECT_URI
-        sync: false
-      - key: OIDC_ROLES
         sync: false
       - key: FRONTEND_URL
         sync: false

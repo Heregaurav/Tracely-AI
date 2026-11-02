@@ -1,18 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 export const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-let csrfToken = ''
-export function setCsrfToken(value) { csrfToken = value || '' }
-
 export async function apiFetch(path, options = {}) {
-  const headers = new Headers(options.headers)
-  if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase())) {
-    headers.set('X-CSRF-Token', csrfToken)
-  }
-  const res = await fetch(BASE + path, { ...options, headers, credentials: 'include' })
+  const res = await fetch(BASE + path, { ...options, credentials: 'omit' })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('session-expired'))
     throw new Error(data.error || `API ${path} → ${res.status}`)
   }
   return data
